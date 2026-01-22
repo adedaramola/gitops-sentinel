@@ -1,0 +1,48 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="AI-Powered GitOps POC">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="obs" value="Observability Layer&#xa;- Prometheus&#xa;- Loki/ELK&#xa;- Traces&#xa;- Cloud Alerts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="260" height="160" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="agent" value="LLM Agent Layer&#xa;- Context Aggregation&#xa;- Root Cause Analysis&#xa;- Remediation Planning" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="360" y="60" width="300" height="160" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="gitops" value="GitOps Control&#xa;- Git Repo (PRs)&#xa;- CI Validation&#xa;- Argo CD / Flux" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="720" y="60" width="300" height="160" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="runtime" value="Runtime Systems&#xa;- Kubernetes&#xa;- Applications&#xa;- Cloud Resources" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="720" y="260" width="300" height="140" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="gov" value="Governance &amp; Safety&#xa;- RBAC&#xa;- Policy-as-code&#xa;- Security scans&#xa;- Approvals&#xa;- Audit logs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="200" y="260" width="380" height="160" as="geometry"/>
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e1" style="endArrow=block;html=1;" edge="1" parent="1" source="obs" target="agent">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" style="endArrow=block;html=1;" edge="1" parent="1" source="agent" target="gitops">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3" style="endArrow=block;html=1;" edge="1" parent="1" source="gitops" target="runtime">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4" style="endArrow=block;html=1;dashed=1;" edge="1" parent="1" source="runtime" target="obs">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e5" style="endArrow=block;html=1;dashed=1;" edge="1" parent="1" source="gov" target="agent">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

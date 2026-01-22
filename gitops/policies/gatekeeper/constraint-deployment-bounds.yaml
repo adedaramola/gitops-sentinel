@@ -1,0 +1,13 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sDeploymentBounds
+metadata:
+  name: deployment-bounds
+spec:
+  match:
+    kinds:
+      - apiGroups: ["apps"]
+        kinds: ["Deployment"]
+  parameters:
+    maxReplicas: 10
+    maxCpuMillicores: 2000
+    maxMemoryMi: 2048

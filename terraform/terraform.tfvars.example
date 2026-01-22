@@ -1,0 +1,19 @@
+aws_region  = "us-east-1"
+project_name = "ai-gitops-poc"
+cluster_name = "ai-gitops-poc"
+
+# GitHub (repo where the agent will open PRs)
+github_owner = "YOUR_ORG_OR_USER"
+github_repo  = "YOUR_REPO"
+
+# Secrets Manager secret containing JSON: { "token": "ghp_..." }
+github_token_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:github-token-abc"
+
+# bedrock|openai
+model_provider = "bedrock"
+
+# Optional: Prometheus query URL (reachable from Lambda)
+prometheus_query_url = "http://PROMETHEUS_HOST:9090"
+
+# Optional: Slack webhook
+slack_webhook_url = ""

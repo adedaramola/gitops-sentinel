@@ -1,0 +1,13 @@
+allowed_actions:
+  - action: rollback_image
+    constraints:
+      allowed_tags: ["stable", "previous", "1.0.0", "1.0.1"]
+  - action: scale_replicas
+    constraints:
+      min: 1
+      max: 10
+  - action: tune_resources
+    constraints:
+      cpu_limit_max: "2000m"
+      mem_limit_max: "2Gi"
+  - action: restart_rollout

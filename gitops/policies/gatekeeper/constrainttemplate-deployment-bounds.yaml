@@ -1,0 +1,52 @@
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8sdeploymentbounds
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sDeploymentBounds
+      validation:
+        openAPIV3Schema:
+          properties:
+            maxReplicas:
+              type: integer
+            maxCpuMillicores:
+              type: integer
+            maxMemoryMi:
+              type: integer
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8sdeploymentbounds
+
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Deployment"
+          max := input.parameters.maxReplicas
+          replicas := input.review.object.spec.replicas
+          replicas > max
+          msg := sprintf("replicas %v exceeds max %v", [replicas, max])
+        }
+
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Deployment"
+          maxCpu := input.parameters.maxCpuMillicores
+          container := input.review.object.spec.template.spec.containers[_]
+          cpu := container.resources.limits.cpu
+          endswith(cpu, "m")
+          c := to_number(trim_suffix(cpu, "m"))
+          c > maxCpu
+          msg := sprintf("cpu limit %v exceeds max %vm", [cpu, maxCpu])
+        }
+
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Deployment"
+          maxMem := input.parameters.maxMemoryMi
+          container := input.review.object.spec.template.spec.containers[_]
+          mem := container.resources.limits.memory
+          endswith(mem, "Mi")
+          m := to_number(trim_suffix(mem, "Mi"))
+          m > maxMem
+          msg := sprintf("memory limit %v exceeds max %vMi", [mem, maxMem])
+        }

@@ -1,0 +1,38 @@
+name: Notify Remediation Applied
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract incident id from last commit message
+        id: extract
+        run: |
+          MSG="$(git log -1 --pretty=%B)"
+          echo "Commit message: $MSG"
+          INC=$(echo "$MSG" | grep -oE "inc-[0-9]+-[a-z0-9]+" | head -n 1 || true)
+          echo "incident_id=$INC" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials
+        if: steps.extract.outputs.incident_id != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Put EventBridge event RemediationApplied
+        if: steps.extract.outputs.incident_id != ''
+        run: |
+          aws events put-events --entries '[
+            {
+              "Source":"ai.gitops",
+              "DetailType":"RemediationApplied",
+              "Detail":"{\"incident_id\":\"'${{ steps.extract.outputs.incident_id }}'\",\"service\":\"demo-service\"}"
+            }
+          ]'

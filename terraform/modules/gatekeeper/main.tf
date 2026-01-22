@@ -1,0 +1,10 @@
+variable "project_name" { type = string }
+
+resource "helm_release" "gatekeeper" {
+  name             = "gatekeeper"
+  repository       = "https://open-policy-agent.github.io/gatekeeper/charts"
+  chart            = "gatekeeper"
+  namespace        = "gatekeeper-system"
+  create_namespace = true
+
+}

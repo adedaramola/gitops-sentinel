@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-service-alerts
+  namespace: monitoring
+spec:
+  groups:
+    - name: demo.rules
+      rules:
+        - alert: DemoServiceHigh5xx
+          expr: sum(rate(http_requests_total{job="demo-service",status=~"5.."}[5m])) > 1
+          for: 5m
+          labels:
+            severity: page
+            service: demo-service
+            env: staging
+          annotations:
+            summary: "High 5xx rate for demo-service"
+            description: "5xx rate is above threshold for 5 minutes."
