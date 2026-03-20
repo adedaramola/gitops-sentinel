@@ -64,14 +64,14 @@ variable "enable_amp" {
 variable "prometheus_query_url" {
   type        = string
   default     = ""
-  description = "Optional Prometheus query URL (e.g., https://prom.example.com). Used by bundler/verifier."
+  description = "Optional Prometheus query URL (e.g., https://prom.example.com). Used by Signal Collector and Outcome Validator."
 }
 
 # EKS cluster context for k8s read-only queries from Lambda (optional)
 variable "enable_k8s_readonly_enrichment" {
   type        = bool
   default     = true
-  description = "If true, bundler queries Kubernetes API for events/deploy info using EKS auth token."
+  description = "If true, Signal Collector queries Kubernetes API for events/deploy info using EKS auth token."
 }
 
 # Notifications (optional)

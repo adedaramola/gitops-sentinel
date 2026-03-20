@@ -33,40 +33,40 @@ data "aws_iam_policy_document" "assume_events" {
   }
 }
 
-# ── Existing Lambda roles ─────────────────────────────────────────────────────
-resource "aws_iam_role" "bundler" {
-  name               = "${var.project_name}-bundler"
+# ── Core Lambda roles ─────────────────────────────────────────────────────────
+resource "aws_iam_role" "signal_collector" {
+  name               = "${var.project_name}-signal-collector"
   assume_role_policy = data.aws_iam_policy_document.assume_lambda.json
 }
 
-resource "aws_iam_role" "agent" {
-  name               = "${var.project_name}-agent"
+resource "aws_iam_role" "decision_engine" {
+  name               = "${var.project_name}-decision-engine"
   assume_role_policy = data.aws_iam_policy_document.assume_lambda.json
 }
 
-resource "aws_iam_role" "verifier" {
-  name               = "${var.project_name}-verifier"
+resource "aws_iam_role" "outcome_validator" {
+  name               = "${var.project_name}-outcome-validator"
   assume_role_policy = data.aws_iam_policy_document.assume_lambda.json
 }
 
 # ── Multi-agent Lambda roles ──────────────────────────────────────────────────
-resource "aws_iam_role" "triage_agent" {
-  name               = "${var.project_name}-triage-agent"
+resource "aws_iam_role" "classifier_agent" {
+  name               = "${var.project_name}-classifier-agent"
   assume_role_policy = data.aws_iam_policy_document.assume_lambda.json
 }
 
-resource "aws_iam_role" "diagnosis_agent" {
-  name               = "${var.project_name}-diagnosis-agent"
+resource "aws_iam_role" "root_cause_agent" {
+  name               = "${var.project_name}-root-cause-agent"
   assume_role_policy = data.aws_iam_policy_document.assume_lambda.json
 }
 
-resource "aws_iam_role" "remediation_agent" {
-  name               = "${var.project_name}-remediation-agent"
+resource "aws_iam_role" "action_planner" {
+  name               = "${var.project_name}-action-planner"
   assume_role_policy = data.aws_iam_policy_document.assume_lambda.json
 }
 
-resource "aws_iam_role" "risk_agent" {
-  name               = "${var.project_name}-risk-agent"
+resource "aws_iam_role" "confidence_scorer" {
+  name               = "${var.project_name}-confidence-scorer"
   assume_role_policy = data.aws_iam_policy_document.assume_lambda.json
 }
 
@@ -85,13 +85,13 @@ resource "aws_iam_role" "events_sfn" {
 # ── Attach basic execution + X-Ray to all Lambda roles ───────────────────────
 locals {
   lambda_roles = {
-    bundler           = aws_iam_role.bundler.name
-    agent             = aws_iam_role.agent.name
-    verifier          = aws_iam_role.verifier.name
-    triage_agent      = aws_iam_role.triage_agent.name
-    diagnosis_agent   = aws_iam_role.diagnosis_agent.name
-    remediation_agent = aws_iam_role.remediation_agent.name
-    risk_agent        = aws_iam_role.risk_agent.name
+    signal_collector  = aws_iam_role.signal_collector.name
+    decision_engine   = aws_iam_role.decision_engine.name
+    outcome_validator = aws_iam_role.outcome_validator.name
+    classifier_agent  = aws_iam_role.classifier_agent.name
+    root_cause_agent  = aws_iam_role.root_cause_agent.name
+    action_planner    = aws_iam_role.action_planner.name
+    confidence_scorer = aws_iam_role.confidence_scorer.name
   }
 }
 
@@ -107,10 +107,10 @@ resource "aws_iam_role_policy_attachment" "xray" {
   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
-# ── Existing inline policies ──────────────────────────────────────────────────
-resource "aws_iam_role_policy" "bundler_inline" {
-  name = "${var.project_name}-bundler-inline"
-  role = aws_iam_role.bundler.id
+# ── Inline policies ───────────────────────────────────────────────────────────
+resource "aws_iam_role_policy" "signal_collector_inline" {
+  name = "${var.project_name}-signal-collector-inline"
+  role = aws_iam_role.signal_collector.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -122,9 +122,9 @@ resource "aws_iam_role_policy" "bundler_inline" {
   })
 }
 
-resource "aws_iam_role_policy" "agent_inline" {
-  name = "${var.project_name}-agent-inline"
-  role = aws_iam_role.agent.id
+resource "aws_iam_role_policy" "decision_engine_inline" {
+  name = "${var.project_name}-decision-engine-inline"
+  role = aws_iam_role.decision_engine.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -136,9 +136,9 @@ resource "aws_iam_role_policy" "agent_inline" {
   })
 }
 
-resource "aws_iam_role_policy" "verifier_inline" {
-  name = "${var.project_name}-verifier-inline"
-  role = aws_iam_role.verifier.id
+resource "aws_iam_role_policy" "outcome_validator_inline" {
+  name = "${var.project_name}-outcome-validator-inline"
+  role = aws_iam_role.outcome_validator.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -150,9 +150,9 @@ resource "aws_iam_role_policy" "verifier_inline" {
 }
 
 # ── Multi-agent inline policies ───────────────────────────────────────────────
-resource "aws_iam_role_policy" "triage_inline" {
-  name = "${var.project_name}-triage-inline"
-  role = aws_iam_role.triage_agent.id
+resource "aws_iam_role_policy" "classifier_inline" {
+  name = "${var.project_name}-classifier-inline"
+  role = aws_iam_role.classifier_agent.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -163,9 +163,9 @@ resource "aws_iam_role_policy" "triage_inline" {
   })
 }
 
-resource "aws_iam_role_policy" "diagnosis_inline" {
-  name = "${var.project_name}-diagnosis-inline"
-  role = aws_iam_role.diagnosis_agent.id
+resource "aws_iam_role_policy" "root_cause_inline" {
+  name = "${var.project_name}-root-cause-inline"
+  role = aws_iam_role.root_cause_agent.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -176,9 +176,9 @@ resource "aws_iam_role_policy" "diagnosis_inline" {
   })
 }
 
-resource "aws_iam_role_policy" "remediation_inline" {
-  name = "${var.project_name}-remediation-inline"
-  role = aws_iam_role.remediation_agent.id
+resource "aws_iam_role_policy" "action_planner_inline" {
+  name = "${var.project_name}-action-planner-inline"
+  role = aws_iam_role.action_planner.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -189,9 +189,9 @@ resource "aws_iam_role_policy" "remediation_inline" {
   })
 }
 
-resource "aws_iam_role_policy" "risk_inline" {
-  name = "${var.project_name}-risk-inline"
-  role = aws_iam_role.risk_agent.id
+resource "aws_iam_role_policy" "confidence_scorer_inline" {
+  name = "${var.project_name}-confidence-scorer-inline"
+  role = aws_iam_role.confidence_scorer.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -226,12 +226,12 @@ resource "aws_iam_role_policy" "events_start_sfn" {
 }
 
 # ── Outputs ───────────────────────────────────────────────────────────────────
-output "bundler_role_arn"           { value = aws_iam_role.bundler.arn }
-output "agent_role_arn"             { value = aws_iam_role.agent.arn }
-output "verifier_role_arn"          { value = aws_iam_role.verifier.arn }
-output "triage_agent_role_arn"      { value = aws_iam_role.triage_agent.arn }
-output "diagnosis_agent_role_arn"   { value = aws_iam_role.diagnosis_agent.arn }
-output "remediation_agent_role_arn" { value = aws_iam_role.remediation_agent.arn }
-output "risk_agent_role_arn"        { value = aws_iam_role.risk_agent.arn }
+output "signal_collector_role_arn"  { value = aws_iam_role.signal_collector.arn }
+output "decision_engine_role_arn"   { value = aws_iam_role.decision_engine.arn }
+output "outcome_validator_role_arn" { value = aws_iam_role.outcome_validator.arn }
+output "classifier_agent_role_arn"  { value = aws_iam_role.classifier_agent.arn }
+output "root_cause_agent_role_arn"  { value = aws_iam_role.root_cause_agent.arn }
+output "action_planner_role_arn"    { value = aws_iam_role.action_planner.arn }
+output "confidence_scorer_role_arn" { value = aws_iam_role.confidence_scorer.arn }
 output "sfn_role_arn"               { value = aws_iam_role.sfn.arn }
 output "events_sfn_role_arn"        { value = aws_iam_role.events_sfn.arn }

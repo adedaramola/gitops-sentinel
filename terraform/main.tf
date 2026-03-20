@@ -101,7 +101,7 @@ module "signal_collector_lambda" {
   project_name                   = local.name
   incident_bucket_name           = module.signals_bucket.bucket_name
   event_bus_name                 = module.eventing.event_bus_name
-  role_arn                       = module.iam.bundler_role_arn
+  role_arn                       = module.iam.signal_collector_role_arn
   aws_region                     = var.aws_region
   cluster_name                   = var.cluster_name
   prometheus_query_url           = var.prometheus_query_url
@@ -115,7 +115,7 @@ module "signal_collector_lambda" {
 module "decision_engine_lambda" {
   source                  = "./modules/lambda_decision_engine"
   project_name            = local.name
-  role_arn                = module.iam.agent_role_arn
+  role_arn                = module.iam.decision_engine_role_arn
   github_owner            = var.github_owner
   github_repo             = var.github_repo
   github_token_secret_arn = var.github_token_secret_arn
@@ -129,7 +129,7 @@ module "decision_engine_lambda" {
 module "outcome_validator_lambda" {
   source                  = "./modules/lambda_outcome_validator"
   project_name            = local.name
-  role_arn                = module.iam.verifier_role_arn
+  role_arn                = module.iam.outcome_validator_role_arn
   aws_region              = var.aws_region
   cluster_name            = var.cluster_name
   prometheus_query_url    = var.prometheus_query_url
@@ -147,7 +147,7 @@ module "outcome_validator_lambda" {
 module "classifier_agent" {
   source         = "./modules/lambda_classifier_agent"
   project_name   = local.name
-  role_arn       = module.iam.triage_agent_role_arn
+  role_arn       = module.iam.classifier_agent_role_arn
   aws_region     = var.aws_region
   model_provider = var.model_provider
 }
@@ -155,7 +155,7 @@ module "classifier_agent" {
 module "root_cause_agent" {
   source         = "./modules/lambda_root_cause_agent"
   project_name   = local.name
-  role_arn       = module.iam.diagnosis_agent_role_arn
+  role_arn       = module.iam.root_cause_agent_role_arn
   aws_region     = var.aws_region
   model_provider = var.model_provider
 }
@@ -163,7 +163,7 @@ module "root_cause_agent" {
 module "action_planner_agent" {
   source                  = "./modules/lambda_action_planner"
   project_name            = local.name
-  role_arn                = module.iam.remediation_agent_role_arn
+  role_arn                = module.iam.action_planner_role_arn
   aws_region              = var.aws_region
   model_provider          = var.model_provider
   github_owner            = var.github_owner
@@ -174,7 +174,7 @@ module "action_planner_agent" {
 module "confidence_scorer_agent" {
   source       = "./modules/lambda_confidence_scorer"
   project_name = local.name
-  role_arn     = module.iam.risk_agent_role_arn
+  role_arn     = module.iam.confidence_scorer_role_arn
   aws_region   = var.aws_region
 }
 

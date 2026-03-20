@@ -1,4 +1,4 @@
-name: Notify Remediation Applied
+name: Notify Action Dispatched
 
 on:
   push:
@@ -26,13 +26,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Put EventBridge event RemediationApplied
+      - name: Put EventBridge event ActionDispatched
         if: steps.extract.outputs.incident_id != ''
         run: |
           aws events put-events --entries '[
             {
-              "Source":"ai.gitops",
-              "DetailType":"RemediationApplied",
+              "Source":"gitops.sentinel",
+              "DetailType":"ActionDispatched",
               "Detail":"{\"incident_id\":\"'${{ steps.extract.outputs.incident_id }}'\",\"service\":\"demo-service\"}"
             }
           ]'

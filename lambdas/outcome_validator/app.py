@@ -108,7 +108,7 @@ def _emit(detail_type, detail):
         return
     events.put_events(Entries=[{
         "EventBusName": EVENT_BUS_NAME,
-        "Source": "ai.gitops",
+        "Source": "gitops.sentinel",
         "DetailType": detail_type,
         "Detail": json.dumps(detail),
     }])
@@ -256,7 +256,7 @@ def handler(event, context):
     detail = event.get("detail", {}) if isinstance(event, dict) else {}
     incident_id = _extract_incident_id(detail)
     service = detail.get("service", "demo-service")
-    _log("info", "verifier_started", incident_id=incident_id, service=service)
+    _log("info", "validator_started", incident_id=incident_id, service=service)
 
     err = _prom_query(f'sum(rate(http_requests_total{{service="{service}",status=~"5.."}}[5m]))')
     recovered = False

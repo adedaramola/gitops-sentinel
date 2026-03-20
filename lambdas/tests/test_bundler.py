@@ -1,4 +1,4 @@
-"""Unit tests for incident_bundler/app.py"""
+"""Unit tests for signal_collector/app.py"""
 import hashlib
 import json
 import os

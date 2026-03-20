@@ -7,12 +7,12 @@ Example (values.yaml for kube-prometheus-stack):
 alertmanager:
   config:
     receivers:
-      - name: ai-webhook
+      - name: sentinel-webhook
         webhook_configs:
           - url: "<WEBHOOK_URL_FROM_TERRAFORM>"
             send_resolved: true
     route:
-      receiver: ai-webhook
+      receiver: sentinel-webhook
 ```
 
-The webhook sends JSON to the Bundler Lambda. The bundler writes an incident bundle to S3 and emits an EventBridge event that triggers the Agent Lambda.
+The webhook sends JSON to the Signal Collector Lambda. It deduplicates, enriches with Prometheus/k8s context, writes a signal bundle to S3, and emits a `SignalBundled` EventBridge event that triggers the Decision Engine.

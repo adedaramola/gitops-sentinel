@@ -1,10 +1,10 @@
-# Amazon Managed Service for Prometheus (AMP) Guidance (POC)
+# Amazon Managed Service for Prometheus (AMP) Guidance (non-production deployment)
 
 This repo supports querying a Prometheus HTTP API endpoint via `prometheus_query_url`.
 
 For AMP:
 - Your `prometheus_query_url` should be your AMP query endpoint.
-- Access requires SigV4 signing. This POC currently assumes the endpoint is reachable without extra auth.
+- Access requires SigV4 signing. This non-production deployment currently assumes the endpoint is reachable without extra auth.
 - For a production AMP integration, add SigV4 signing (AWS requests auth) to the `_prom_query()` functions.
 
 Practical approach:

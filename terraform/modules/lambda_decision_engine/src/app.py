@@ -264,9 +264,9 @@ Revert this PR.
         original = base64.b64decode(file_obj["content"]).decode("utf-8")
         stamp = str(int(time.time()))
         if "metadata:" in original and "annotations:" not in original:
-            patched = original.replace("metadata:\n", f"metadata:\n  annotations:\n    ai.gitops/restartAt: \"{stamp}\"\n")
+            patched = original.replace("metadata:\n", f"metadata:\n  annotations:\n    gitops.sentinel/restartAt: \"{stamp}\"\n")
         else:
-            patched = original + f"\n# ai.gitops/restartAt: {stamp}\n"
+            patched = original + f"\n# gitops.sentinel/restartAt: {stamp}\n"
         _put_file(GITHUB_OWNER, GITHUB_REPO, deploy_path, f"[AI] {bundle['incident_id']}: restart rollout", patched.encode("utf-8"), file_obj["sha"], branch, token)
         changes.append(deploy_path)
 

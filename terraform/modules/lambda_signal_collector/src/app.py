@@ -28,7 +28,7 @@ def _now():
 def _emit(detail_type, detail):
     events.put_events(Entries=[{
         "EventBusName": EVENT_BUS_NAME,
-        "Source": "ai.gitops",
+        "Source": "gitops.sentinel",
         "DetailType": detail_type,
         "Detail": json.dumps(detail)
     }])

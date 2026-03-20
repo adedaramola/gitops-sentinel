@@ -31,7 +31,7 @@ resource "aws_cloudwatch_event_rule" "alert_in" {
   name           = "${var.project_name}-alert-in"
   event_bus_name = var.event_bus_name
   event_pattern = jsonencode({
-    "source" : ["prometheus.alertmanager", "ai.gitops.webhook", "ai.gitops.test"]
+    "source" : ["prometheus.alertmanager", "gitops.sentinel.webhook", "gitops.sentinel.test"]
   })
 }
 
@@ -55,7 +55,7 @@ resource "aws_cloudwatch_event_rule" "bundle_created" {
   name           = "${var.project_name}-bundle-created"
   event_bus_name = var.event_bus_name
   event_pattern = jsonencode({
-    "source" : ["ai.gitops"],
+    "source" : ["gitops.sentinel"],
     "detail-type" : ["SignalBundled"]
   })
 }
@@ -80,7 +80,7 @@ resource "aws_cloudwatch_event_rule" "verify" {
   name           = "${var.project_name}-verify"
   event_bus_name = var.event_bus_name
   event_pattern = jsonencode({
-    "source" : ["ai.gitops"],
+    "source" : ["gitops.sentinel"],
     "detail-type" : ["ActionDispatched"]
   })
 }
@@ -105,7 +105,7 @@ resource "aws_cloudwatch_event_rule" "multi_agent" {
   name           = "${var.project_name}-multi-agent"
   event_bus_name = var.event_bus_name
   event_pattern = jsonencode({
-    "source" : ["ai.gitops"],
+    "source" : ["gitops.sentinel"],
     "detail-type" : ["SentinelPipelineTriggered"]
   })
 }
