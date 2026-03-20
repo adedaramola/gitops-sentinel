@@ -3,6 +3,8 @@ name: Notify Action Dispatched
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - "gitops/**"
 
 jobs:
   notify:
@@ -28,11 +30,18 @@ jobs:
 
       - name: Put EventBridge event ActionDispatched
         if: steps.extract.outputs.incident_id != ''
+        env:
+          INCIDENT_ID: ${{ steps.extract.outputs.incident_id }}
+          EVENT_BUS_NAME: ${{ secrets.AWS_EVENT_BUS_NAME }}
         run: |
-          aws events put-events --entries '[
+          cat > /tmp/eb-entry.json <<JSON
+          [
             {
-              "Source":"gitops.sentinel",
-              "DetailType":"ActionDispatched",
-              "Detail":"{\"incident_id\":\"'${{ steps.extract.outputs.incident_id }}'\",\"service\":\"demo-service\"}"
+              "EventBusName": "${EVENT_BUS_NAME}",
+              "Source": "gitops.sentinel",
+              "DetailType": "ActionDispatched",
+              "Detail": "{\"incident_id\":\"${INCIDENT_ID}\",\"service\":\"demo-service\"}"
             }
-          ]'
+          ]
+          JSON
+          aws events put-events --entries file:///tmp/eb-entry.json
