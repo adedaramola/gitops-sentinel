@@ -1,6 +1,6 @@
 variable "project_name" { type = string }
-variable "role_arn"      { type = string }
-variable "aws_region"    { type = string }
+variable "role_arn" { type = string }
+variable "aws_region" { type = string }
 
 data "archive_file" "zip" {
   type        = "zip"
@@ -26,5 +26,5 @@ resource "aws_lambda_function" "this" {
   }
 }
 
-output "lambda_arn"  { value = aws_lambda_function.this.arn }
+output "lambda_arn" { value = aws_lambda_function.this.arn }
 output "lambda_name" { value = aws_lambda_function.this.function_name }

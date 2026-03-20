@@ -1,10 +1,10 @@
-variable "project_name"            { type = string }
-variable "triage_lambda_arn"       { type = string }
-variable "diagnosis_lambda_arn"    { type = string }
-variable "remediation_lambda_arn"  { type = string }
-variable "risk_lambda_arn"         { type = string }
-variable "agent_lambda_arn"        { type = string }  # existing llm_agent for PR opening
-variable "sfn_role_arn"            { type = string }
+variable "project_name" { type = string }
+variable "triage_lambda_arn" { type = string }
+variable "diagnosis_lambda_arn" { type = string }
+variable "remediation_lambda_arn" { type = string }
+variable "risk_lambda_arn" { type = string }
+variable "agent_lambda_arn" { type = string } # existing llm_agent for PR opening
+variable "sfn_role_arn" { type = string }
 
 resource "aws_sfn_state_machine" "multi_agent" {
   name     = "${var.project_name}-multi-agent-pipeline"
@@ -17,12 +17,12 @@ resource "aws_sfn_state_machine" "multi_agent" {
 
     States = {
       TriageIncident = {
-        Type     = "Task"
-        Resource = var.triage_lambda_arn
+        Type       = "Task"
+        Resource   = var.triage_lambda_arn
         ResultPath = "$.triage"
-        Next     = "DiagnoseIncident"
+        Next       = "DiagnoseIncident"
         Retry = [{
-          ErrorEquals  = ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.TooManyRequestsException"]
+          ErrorEquals     = ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.TooManyRequestsException"]
           IntervalSeconds = 2
           MaxAttempts     = 2
           BackoffRate     = 2.0
@@ -35,7 +35,7 @@ resource "aws_sfn_state_machine" "multi_agent" {
       }
 
       TriageFallback = {
-        Type   = "Pass"
+        Type = "Pass"
         Result = {
           severity_class = "medium"
           incident_type  = "Unknown"
@@ -48,12 +48,12 @@ resource "aws_sfn_state_machine" "multi_agent" {
       }
 
       DiagnoseIncident = {
-        Type     = "Task"
-        Resource = var.diagnosis_lambda_arn
+        Type       = "Task"
+        Resource   = var.diagnosis_lambda_arn
         ResultPath = "$.diagnosis"
-        Next     = "ProposeRemediation"
+        Next       = "ProposeRemediation"
         Retry = [{
-          ErrorEquals  = ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.TooManyRequestsException"]
+          ErrorEquals     = ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.TooManyRequestsException"]
           IntervalSeconds = 2
           MaxAttempts     = 2
           BackoffRate     = 2.0
@@ -66,24 +66,24 @@ resource "aws_sfn_state_machine" "multi_agent" {
       }
 
       DiagnosisFallback = {
-        Type   = "Pass"
+        Type = "Pass"
         Result = {
-          root_cause            = "Unknown — diagnosis agent unavailable"
-          contributing_factors  = ["diagnosis_agent_unavailable"]
-          affected_components   = []
-          diagnosis_confidence  = 20
+          root_cause           = "Unknown — diagnosis agent unavailable"
+          contributing_factors = ["diagnosis_agent_unavailable"]
+          affected_components  = []
+          diagnosis_confidence = 20
         }
         ResultPath = "$.diagnosis"
         Next       = "ProposeRemediation"
       }
 
       ProposeRemediation = {
-        Type     = "Task"
-        Resource = var.remediation_lambda_arn
+        Type       = "Task"
+        Resource   = var.remediation_lambda_arn
         ResultPath = "$.remediation"
-        Next     = "AssessRisk"
+        Next       = "AssessRisk"
         Retry = [{
-          ErrorEquals  = ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.TooManyRequestsException"]
+          ErrorEquals     = ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.TooManyRequestsException"]
           IntervalSeconds = 2
           MaxAttempts     = 2
           BackoffRate     = 2.0
@@ -96,7 +96,7 @@ resource "aws_sfn_state_machine" "multi_agent" {
       }
 
       RemediationFallback = {
-        Type   = "Pass"
+        Type = "Pass"
         Result = {
           action       = "restart_rollout"
           params       = {}
@@ -109,12 +109,12 @@ resource "aws_sfn_state_machine" "multi_agent" {
       }
 
       AssessRisk = {
-        Type     = "Task"
-        Resource = var.risk_lambda_arn
+        Type       = "Task"
+        Resource   = var.risk_lambda_arn
         ResultPath = "$.risk"
-        Next     = "RouteByConfidence"
+        Next       = "RouteByConfidence"
         Retry = [{
-          ErrorEquals  = ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.TooManyRequestsException"]
+          ErrorEquals     = ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.TooManyRequestsException"]
           IntervalSeconds = 2
           MaxAttempts     = 2
           BackoffRate     = 2.0
@@ -122,7 +122,7 @@ resource "aws_sfn_state_machine" "multi_agent" {
         Catch = [{
           ErrorEquals = ["States.ALL"]
           ResultPath  = "$.risk_error"
-          Next        = "OpenRemediationPR"  # safe default on risk agent failure
+          Next        = "OpenRemediationPR" # safe default on risk agent failure
         }]
       }
 
@@ -130,14 +130,14 @@ resource "aws_sfn_state_machine" "multi_agent" {
         Type = "Choice"
         Choices = [
           {
-            Variable                   = "$.risk.recommendation"
-            StringEquals               = "auto_apply"
-            Next                       = "QueueForAutoApply"
+            Variable     = "$.risk.recommendation"
+            StringEquals = "auto_apply"
+            Next         = "QueueForAutoApply"
           },
           {
-            Variable                   = "$.risk.recommendation"
-            StringEquals               = "escalate"
-            Next                       = "EscalateToHuman"
+            Variable     = "$.risk.recommendation"
+            StringEquals = "escalate"
+            Next         = "EscalateToHuman"
           }
         ]
         Default = "OpenRemediationPR"
@@ -145,27 +145,27 @@ resource "aws_sfn_state_machine" "multi_agent" {
 
       # Phase 3 placeholder: auto_apply will merge the PR automatically
       QueueForAutoApply = {
-        Type     = "Task"
-        Resource = var.agent_lambda_arn
-        Comment  = "Phase 3: auto-merge will be wired here. Currently opens PR like medium-confidence path."
+        Type       = "Task"
+        Resource   = var.agent_lambda_arn
+        Comment    = "Phase 3: auto-merge will be wired here. Currently opens PR like medium-confidence path."
         ResultPath = "$.pr_result"
-        Next     = "PipelineComplete"
+        Next       = "PipelineComplete"
       }
 
       OpenRemediationPR = {
-        Type     = "Task"
-        Resource = var.agent_lambda_arn
-        Comment  = "Opens a GitHub PR for human review. Used for medium-confidence remediations."
+        Type       = "Task"
+        Resource   = var.agent_lambda_arn
+        Comment    = "Opens a GitHub PR for human review. Used for medium-confidence remediations."
         ResultPath = "$.pr_result"
-        Next     = "PipelineComplete"
+        Next       = "PipelineComplete"
       }
 
       EscalateToHuman = {
-        Type   = "Pass"
-        Comment = "Low confidence — no automated action. Slack notification sent by risk_agent."
-        Result = { escalated = true, reason = "confidence_too_low" }
+        Type       = "Pass"
+        Comment    = "Low confidence — no automated action. Slack notification sent by risk_agent."
+        Result     = { escalated = true, reason = "confidence_too_low" }
         ResultPath = "$.escalation"
-        Next   = "PipelineComplete"
+        Next       = "PipelineComplete"
       }
 
       PipelineComplete = {
@@ -177,5 +177,5 @@ resource "aws_sfn_state_machine" "multi_agent" {
   tags = { Project = var.project_name }
 }
 
-output "state_machine_arn"  { value = aws_sfn_state_machine.multi_agent.arn }
+output "state_machine_arn" { value = aws_sfn_state_machine.multi_agent.arn }
 output "state_machine_name" { value = aws_sfn_state_machine.multi_agent.name }

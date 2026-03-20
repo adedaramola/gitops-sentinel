@@ -7,13 +7,13 @@ resource "aws_dynamodb_table" "this" {
   range_key    = "created_at"
 
   attribute {
-  name = "dedup_key"
-  type = "S"
-}
+    name = "dedup_key"
+    type = "S"
+  }
   attribute {
-  name = "created_at"
-  type = "N"
- }
+    name = "created_at"
+    type = "N"
+  }
 
   ttl {
     attribute_name = "ttl"

@@ -1,10 +1,10 @@
-variable "project_name"         { type = string }
-variable "event_bus_name"        { type = string }
-variable "bundler_lambda_arn"    { type = string }
-variable "agent_lambda_arn"      { type = string }
-variable "verifier_lambda_arn"   { type = string }
-variable "sfn_arn"               { type = string }
-variable "events_sfn_role_arn"   { type = string }
+variable "project_name" { type = string }
+variable "event_bus_name" { type = string }
+variable "bundler_lambda_arn" { type = string }
+variable "agent_lambda_arn" { type = string }
+variable "verifier_lambda_arn" { type = string }
+variable "sfn_arn" { type = string }
+variable "events_sfn_role_arn" { type = string }
 
 # ── Dead Letter Queue ─────────────────────────────────────────────────────────
 resource "aws_sqs_queue" "dlq" {
@@ -126,9 +126,9 @@ resource "aws_cloudwatch_event_target" "multi_agent_to_sfn" {
   }
 }
 
-output "alert_in_rule_arn"       { value = aws_cloudwatch_event_rule.alert_in.arn }
-output "bundle_created_rule_arn"  { value = aws_cloudwatch_event_rule.bundle_created.arn }
-output "verify_rule_arn"          { value = aws_cloudwatch_event_rule.verify.arn }
-output "multi_agent_rule_arn"     { value = aws_cloudwatch_event_rule.multi_agent.arn }
-output "dlq_arn"                  { value = aws_sqs_queue.dlq.arn }
-output "dlq_url"                  { value = aws_sqs_queue.dlq.id }
+output "alert_in_rule_arn" { value = aws_cloudwatch_event_rule.alert_in.arn }
+output "bundle_created_rule_arn" { value = aws_cloudwatch_event_rule.bundle_created.arn }
+output "verify_rule_arn" { value = aws_cloudwatch_event_rule.verify.arn }
+output "multi_agent_rule_arn" { value = aws_cloudwatch_event_rule.multi_agent.arn }
+output "dlq_arn" { value = aws_sqs_queue.dlq.arn }
+output "dlq_url" { value = aws_sqs_queue.dlq.id }

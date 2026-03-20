@@ -8,7 +8,7 @@ variable "event_bus_name" { type = string }
 variable "github_owner" { type = string }
 variable "github_repo" { type = string }
 variable "github_token_secret_arn" { type = string }
-variable "audit_table_name"        { type = string }
+variable "audit_table_name" { type = string }
 
 data "archive_file" "zip" {
   type        = "zip"
@@ -44,5 +44,5 @@ resource "aws_lambda_function" "this" {
   }
 }
 
-output "lambda_arn"  { value = aws_lambda_function.this.arn }
+output "lambda_arn" { value = aws_lambda_function.this.arn }
 output "lambda_name" { value = aws_lambda_function.this.function_name }

@@ -1,6 +1,6 @@
-variable "project_name"        { type = string }
+variable "project_name" { type = string }
 variable "incident_bucket_arn" { type = string }
-variable "event_bus_arn"        { type = string }
+variable "event_bus_arn" { type = string }
 
 # ── Trust policies ────────────────────────────────────────────────────────────
 data "aws_iam_policy_document" "assume_lambda" {
@@ -226,12 +226,12 @@ resource "aws_iam_role_policy" "events_start_sfn" {
 }
 
 # ── Outputs ───────────────────────────────────────────────────────────────────
-output "signal_collector_role_arn"  { value = aws_iam_role.signal_collector.arn }
-output "decision_engine_role_arn"   { value = aws_iam_role.decision_engine.arn }
+output "signal_collector_role_arn" { value = aws_iam_role.signal_collector.arn }
+output "decision_engine_role_arn" { value = aws_iam_role.decision_engine.arn }
 output "outcome_validator_role_arn" { value = aws_iam_role.outcome_validator.arn }
-output "classifier_agent_role_arn"  { value = aws_iam_role.classifier_agent.arn }
-output "root_cause_agent_role_arn"  { value = aws_iam_role.root_cause_agent.arn }
-output "action_planner_role_arn"    { value = aws_iam_role.action_planner.arn }
+output "classifier_agent_role_arn" { value = aws_iam_role.classifier_agent.arn }
+output "root_cause_agent_role_arn" { value = aws_iam_role.root_cause_agent.arn }
+output "action_planner_role_arn" { value = aws_iam_role.action_planner.arn }
 output "confidence_scorer_role_arn" { value = aws_iam_role.confidence_scorer.arn }
-output "sfn_role_arn"               { value = aws_iam_role.sfn.arn }
-output "events_sfn_role_arn"        { value = aws_iam_role.events_sfn.arn }
+output "sfn_role_arn" { value = aws_iam_role.sfn.arn }
+output "events_sfn_role_arn" { value = aws_iam_role.events_sfn.arn }

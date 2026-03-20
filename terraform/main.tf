@@ -196,14 +196,14 @@ module "sentinel_pipeline" {
 # EventBridge rules
 ########################
 module "rules" {
-  source               = "./modules/eventbridge_rules"
-  project_name         = local.name
-  event_bus_name       = module.eventing.event_bus_name
-  bundler_lambda_arn   = module.signal_collector_lambda.lambda_arn
-  agent_lambda_arn     = module.decision_engine_lambda.lambda_arn
-  verifier_lambda_arn  = module.outcome_validator_lambda.lambda_arn
-  sfn_arn              = module.sentinel_pipeline.state_machine_arn
-  events_sfn_role_arn  = module.iam.events_sfn_role_arn
+  source              = "./modules/eventbridge_rules"
+  project_name        = local.name
+  event_bus_name      = module.eventing.event_bus_name
+  bundler_lambda_arn  = module.signal_collector_lambda.lambda_arn
+  agent_lambda_arn    = module.decision_engine_lambda.lambda_arn
+  verifier_lambda_arn = module.outcome_validator_lambda.lambda_arn
+  sfn_arn             = module.sentinel_pipeline.state_machine_arn
+  events_sfn_role_arn = module.iam.events_sfn_role_arn
 }
 
 ########################
