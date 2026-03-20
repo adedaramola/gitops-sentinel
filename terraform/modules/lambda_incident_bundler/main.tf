@@ -1,20 +1,22 @@
 variable "project_name" { type = string }
 variable "role_arn" { type = string }
-
 variable "incident_bucket_name" { type = string }
 variable "event_bus_name" { type = string }
-
-
-
-
-
-
-
 variable "aws_region" { type = string }
 variable "cluster_name" { type = string }
 variable "prometheus_query_url" { type = string }
 variable "enable_k8s_readonly_enrichment" { type = bool }
 variable "incidents_table_name" { type = string }
+variable "webhook_secret" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+variable "enable_multi_agent" {
+  type    = bool
+  default = false
+}
+
 data "archive_file" "zip" {
   type        = "zip"
   source_dir  = "${path.module}/src"
@@ -22,22 +24,29 @@ data "archive_file" "zip" {
 }
 
 resource "aws_lambda_function" "this" {
-  function_name = "${var.project_name}-lambda_incident_bundler"
-  role          = var.role_arn
-  runtime       = "python3.11"
-  handler       = "app.handler"
-  filename      = data.archive_file.zip.output_path
-  timeout       = 30
+  function_name                  = "${var.project_name}-lambda_incident_bundler"
+  role                           = var.role_arn
+  runtime                        = "python3.11"
+  handler                        = "app.handler"
+  filename                       = data.archive_file.zip.output_path
+  timeout                        = 60
+  reserved_concurrent_executions = 10
+
+  tracing_config {
+    mode = "Active"
+  }
 
   environment {
     variables = {
-      DEDUP_TTL_SECONDS = "1800"
+      DEDUP_TTL_SECONDS    = "1800"
       INCIDENTS_TABLE_NAME = var.incidents_table_name
-      INCIDENT_BUCKET = var.incident_bucket_name
-      EVENT_BUS_NAME = var.event_bus_name
-      CLUSTER_NAME = var.cluster_name
+      INCIDENT_BUCKET      = var.incident_bucket_name
+      EVENT_BUS_NAME       = var.event_bus_name
+      CLUSTER_NAME         = var.cluster_name
       PROMETHEUS_QUERY_URL = var.prometheus_query_url
-      ENABLE_K8S_READONLY = tostring(var.enable_k8s_readonly_enrichment)
+      ENABLE_K8S_READONLY  = tostring(var.enable_k8s_readonly_enrichment)
+      WEBHOOK_SECRET       = var.webhook_secret
+      ENABLE_MULTI_AGENT   = tostring(var.enable_multi_agent)
     }
   }
 }

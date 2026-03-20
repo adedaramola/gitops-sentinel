@@ -1,19 +1,54 @@
-aws_region  = "us-east-1"
-project_name = "ai-gitops-poc"
-cluster_name = "ai-gitops-poc"
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored — never commit real credentials.
 
-# GitHub (repo where the agent will open PRs)
+# ─── Required ─────────────────────────────────────────────────────────────────
+
+aws_region   = "us-east-1"
+project_name = "ai-gitops-Self-Healing"
+cluster_name = "ai-gitops-Cluster"
+
+# GitHub org/user that owns the GitOps repo
 github_owner = "YOUR_ORG_OR_USER"
-github_repo  = "YOUR_REPO"
 
-# Secrets Manager secret containing JSON: { "token": "ghp_..." }
-github_token_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:github-token-abc"
+# Name of the GitOps repository
+github_repo = "YOUR_REPO"
 
-# bedrock|openai
+# ARN of a Secrets Manager secret containing: {"token":"ghp_..."}
+# Minimum token scopes: contents:write, pull_requests:write
+github_token_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:github-token-xxxxxx"
+
+# ─── Model provider ───────────────────────────────────────────────────────────
+
+# bedrock (default) or openai
 model_provider = "bedrock"
 
-# Optional: Prometheus query URL (reachable from Lambda)
-prometheus_query_url = "http://PROMETHEUS_HOST:9090"
+# Only required when model_provider = "openai"
+# ARN of a Secrets Manager secret containing: {"api_key":"sk-..."}
+# openai_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:openai-key-xxxxxx"
 
-# Optional: Slack webhook
-slack_webhook_url = ""
+# ─── Networking ───────────────────────────────────────────────────────────────
+
+vpc_cidr = "10.20.0.0/16"
+az_count  = 2
+
+# ─── Observability ────────────────────────────────────────────────────────────
+
+# URL for Prometheus query API (reachable from Lambda VPC).
+# For self-managed Prometheus on EKS, expose via an internal load balancer.
+# For Amazon Managed Prometheus (AMP), see docs/amp-guidance.md.
+prometheus_query_url = ""  # e.g. "http://prometheus-operated.monitoring.svc.cluster.local:9090"
+
+# Allow Bundler Lambda to read Kubernetes events and deployment status.
+enable_k8s_readonly_enrichment = true
+
+# ─── Notifications ────────────────────────────────────────────────────────────
+
+# Slack incoming webhook URL for Verifier status messages (optional)
+slack_webhook_url = ""  # e.g. "https://hooks.slack.com/services/T00/B00/xxxx"
+
+# ─── Webhook security ─────────────────────────────────────────────────────────
+
+# Shared secret to authenticate Alertmanager webhook calls.
+# Configure Alertmanager to send header: X-Webhook-Secret: <this value>
+# Generate a strong value with: openssl rand -hex 32
+webhook_secret = "REPLACE_WITH_openssl_rand_hex_32_output"

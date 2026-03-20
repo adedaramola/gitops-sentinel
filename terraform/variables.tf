@@ -80,3 +80,18 @@ variable "slack_webhook_url" {
   default     = ""
   description = "Optional Slack webhook for verifier status updates."
 }
+
+# Webhook authentication
+variable "webhook_secret" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Shared secret for Alertmanager -> API Gateway webhook auth (X-Webhook-Secret header)."
+}
+
+# Multi-agent pipeline
+variable "enable_multi_agent" {
+  type        = bool
+  default     = false
+  description = "When true, routes incidents through the Step Functions multi-agent pipeline instead of the single llm_agent Lambda."
+}

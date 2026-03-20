@@ -33,7 +33,7 @@ module "eks" {
   version = "~> 20.0"
 
   cluster_name    = var.cluster_name
-  cluster_version = "1.29"
+  cluster_version = "1.32"
 
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
@@ -42,11 +42,14 @@ module "eks" {
   cluster_endpoint_public_access           = true
 
 
+  create_kms_key            = false
+  cluster_encryption_config = {}
+
   eks_managed_node_groups = {
     default = {
       instance_types = ["t2.medium"]
       min_size       = 2
-      max_size       = 4
+      max_size       = 2
       desired_size   = 2
     }
   }
@@ -105,6 +108,8 @@ module "bundler_lambda" {
   prometheus_query_url           = var.prometheus_query_url
   enable_k8s_readonly_enrichment = var.enable_k8s_readonly_enrichment
   incidents_table_name           = module.incidents_table.table_name
+  webhook_secret                 = var.webhook_secret
+  enable_multi_agent             = var.enable_multi_agent
 }
 
 module "agent_lambda" {
@@ -134,14 +139,69 @@ module "verifier_lambda" {
   github_token_secret_arn = var.github_token_secret_arn
 }
 
-module "rules" {
-  source         = "./modules/eventbridge_rules"
-  project_name   = local.name
-  event_bus_name = module.eventing.event_bus_name
+########################
+# Multi-agent Lambda functions
+########################
+module "triage_agent" {
+  source           = "./modules/lambda_triage_agent"
+  project_name     = local.name
+  role_arn         = module.iam.triage_agent_role_arn
+  aws_region       = var.aws_region
+  model_provider   = var.model_provider
+}
 
-  bundler_lambda_arn  = module.bundler_lambda.lambda_arn
-  agent_lambda_arn    = module.agent_lambda.lambda_arn
-  verifier_lambda_arn = module.verifier_lambda.lambda_arn
+module "diagnosis_agent" {
+  source           = "./modules/lambda_diagnosis_agent"
+  project_name     = local.name
+  role_arn         = module.iam.diagnosis_agent_role_arn
+  aws_region       = var.aws_region
+  model_provider   = var.model_provider
+}
+
+module "remediation_agent" {
+  source                  = "./modules/lambda_remediation_agent"
+  project_name            = local.name
+  role_arn                = module.iam.remediation_agent_role_arn
+  aws_region              = var.aws_region
+  model_provider          = var.model_provider
+  github_owner            = var.github_owner
+  github_repo             = var.github_repo
+  github_token_secret_arn = var.github_token_secret_arn
+}
+
+module "risk_agent" {
+  source       = "./modules/lambda_risk_agent"
+  project_name = local.name
+  role_arn     = module.iam.risk_agent_role_arn
+  aws_region   = var.aws_region
+}
+
+########################
+# Step Functions — multi-agent pipeline
+########################
+module "multi_agent_pipeline" {
+  source                 = "./modules/step_functions"
+  project_name           = local.name
+  triage_lambda_arn      = module.triage_agent.lambda_arn
+  diagnosis_lambda_arn   = module.diagnosis_agent.lambda_arn
+  remediation_lambda_arn = module.remediation_agent.lambda_arn
+  risk_lambda_arn        = module.risk_agent.lambda_arn
+  agent_lambda_arn       = module.agent_lambda.lambda_arn
+  sfn_role_arn           = module.iam.sfn_role_arn
+}
+
+########################
+# EventBridge rules
+########################
+module "rules" {
+  source               = "./modules/eventbridge_rules"
+  project_name         = local.name
+  event_bus_name       = module.eventing.event_bus_name
+  bundler_lambda_arn   = module.bundler_lambda.lambda_arn
+  agent_lambda_arn     = module.agent_lambda.lambda_arn
+  verifier_lambda_arn  = module.verifier_lambda.lambda_arn
+  sfn_arn              = module.multi_agent_pipeline.state_machine_arn
+  events_sfn_role_arn  = module.iam.events_sfn_role_arn
 }
 
 ########################

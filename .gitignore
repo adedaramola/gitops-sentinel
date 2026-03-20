@@ -36,4 +36,21 @@ override.tf.json
 .terraformrc
 terraform.rc
 
+# Vim swap files
+*.swp
+*.swo
+
 .png
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+
+# Infracost
+.infracost/
+
+# Artifacts
+ALL_ARTIFACTS_MANIFEST.md
