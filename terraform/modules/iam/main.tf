@@ -130,7 +130,8 @@ resource "aws_iam_role_policy" "agent_inline" {
     Statement = [
       { Effect = "Allow", Action = ["s3:GetObject"], Resource = ["${var.incident_bucket_arn}/*"] },
       { Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = ["*"] },
-      { Effect = "Allow", Action = ["bedrock:InvokeModel"], Resource = ["*"] }
+      { Effect = "Allow", Action = ["bedrock:InvokeModel"], Resource = ["*"] },
+      { Effect = "Allow", Action = ["dynamodb:PutItem", "dynamodb:UpdateItem"], Resource = ["*"] }
     ]
   })
 }
@@ -142,7 +143,8 @@ resource "aws_iam_role_policy" "verifier_inline" {
     Version = "2012-10-17"
     Statement = [
       { Effect = "Allow", Action = ["events:PutEvents"], Resource = [var.event_bus_arn] },
-      { Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = ["*"] }
+      { Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = ["*"] },
+      { Effect = "Allow", Action = ["dynamodb:PutItem", "dynamodb:UpdateItem"], Resource = ["*"] }
     ]
   })
 }

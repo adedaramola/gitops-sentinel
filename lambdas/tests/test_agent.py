@@ -41,7 +41,7 @@ os.environ.setdefault("GITHUB_APP_TOKEN_SECRET_ARN", "arn:aws:secretsmanager:us-
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import importlib
-import llm_agent.app as app
+import decision_engine.app as app
 
 importlib.reload(app)
 

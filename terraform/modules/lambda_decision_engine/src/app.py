@@ -179,7 +179,7 @@ def _patch_image_deployment(deploy_yaml: str, new_tag: str) -> str:
 
 def handler(event, context):
     """
-    Triggered by EventBridge on IncidentBundleCreated.
+    Triggered by EventBridge on SignalBundled.
     Reads incident bundle from S3, proposes remediation, opens PR.
     """
     detail = event.get("detail", {})

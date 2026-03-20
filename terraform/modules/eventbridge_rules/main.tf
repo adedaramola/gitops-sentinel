@@ -56,7 +56,7 @@ resource "aws_cloudwatch_event_rule" "bundle_created" {
   event_bus_name = var.event_bus_name
   event_pattern = jsonencode({
     "source" : ["ai.gitops"],
-    "detail-type" : ["IncidentBundleCreated"]
+    "detail-type" : ["SignalBundled"]
   })
 }
 
@@ -81,7 +81,7 @@ resource "aws_cloudwatch_event_rule" "verify" {
   event_bus_name = var.event_bus_name
   event_pattern = jsonencode({
     "source" : ["ai.gitops"],
-    "detail-type" : ["RemediationApplied"]
+    "detail-type" : ["ActionDispatched"]
   })
 }
 
@@ -106,7 +106,7 @@ resource "aws_cloudwatch_event_rule" "multi_agent" {
   event_bus_name = var.event_bus_name
   event_pattern = jsonencode({
     "source" : ["ai.gitops"],
-    "detail-type" : ["MultiAgentIncidentCreated"]
+    "detail-type" : ["SentinelPipelineTriggered"]
   })
 }
 

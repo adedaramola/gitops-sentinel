@@ -33,8 +33,11 @@ _SESSION = _make_session()
 # ── AWS clients ───────────────────────────────────────────────────────────────
 events = boto3.client("events")
 secrets = boto3.client("secretsmanager")
+dynamodb = boto3.client("dynamodb")
 
 # ── Config from environment ───────────────────────────────────────────────────
+import time as _time  # noqa: E402
+
 GITHUB_API = "https://api.github.com"
 GITHUB_OWNER = os.environ.get("GITHUB_OWNER", "")
 GITHUB_REPO = os.environ.get("GITHUB_REPO", "")
@@ -43,6 +46,27 @@ EVENT_BUS_NAME = os.environ.get("EVENT_BUS_NAME", "")
 PROM_URL = os.environ.get("PROMETHEUS_QUERY_URL", "")
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "")
 AUTO_REVERT_ON_FAIL = os.environ.get("AUTO_REVERT_ON_FAIL", "true").lower() == "true"
+AUDIT_TABLE_NAME = os.environ.get("AUDIT_TABLE_NAME", "")
+
+
+def _audit_update(incident_id: str, outcome: str, detail: dict) -> None:
+    """Update the audit record with the final validation outcome."""
+    if not AUDIT_TABLE_NAME:
+        return
+    try:
+        dynamodb.put_item(
+            TableName=AUDIT_TABLE_NAME,
+            Item={
+                "incident_id": {"S": incident_id},
+                "event_time":  {"N": str(int(_time.time()))},
+                "ttl":         {"N": str(int(_time.time()) + 90 * 86400)},
+                "stage":       {"S": "outcome_validated"},
+                "outcome":     {"S": outcome},
+                **{k: {"S": str(v)} for k, v in detail.items()},
+            },
+        )
+    except Exception as exc:  # noqa: BLE001
+        _log("warning", "audit_update_failed", error=str(exc))
 
 
 def _get_secret_json(arn: str) -> dict:
@@ -245,7 +269,7 @@ def handler(event, context):
         _log("warning", "recovery_check_failed", error=str(exc))
         recovered = False
 
-    status = "RemediationVerified" if recovered else "RemediationFailed"
+    status = "OutcomeValidated" if recovered else "OutcomeFailed"
     _log("info", "verification_result", incident_id=incident_id, status=status, recovered=recovered)
 
     revert_result = None
@@ -270,5 +294,11 @@ def handler(event, context):
     if revert_result and revert_result.get("revert_pr_url"):
         msg += f" | Revert PR: {revert_result['revert_pr_url']}"
     _slack(msg)
+
+    _audit_update(incident_id, status, {
+        "service":    service,
+        "recovered":  str(recovered),
+        "revert_url": (revert_result or {}).get("revert_pr_url", ""),
+    })
 
     return {"statusCode": 200, "body": json.dumps(payload)}

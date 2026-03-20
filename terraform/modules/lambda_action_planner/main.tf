@@ -17,7 +17,7 @@ data "archive_file" "zip" {
 }
 
 resource "aws_lambda_function" "this" {
-  function_name                  = "${var.project_name}-remediation-agent"
+  function_name                  = "${var.project_name}-action-planner"
   role                           = var.role_arn
   runtime                        = "python3.11"
   handler                        = "app.handler"

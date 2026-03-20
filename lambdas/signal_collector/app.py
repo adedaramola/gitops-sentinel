@@ -53,7 +53,7 @@ INCIDENTS_TABLE_NAME = os.environ.get("INCIDENTS_TABLE_NAME", "")
 DEDUP_TTL_SECONDS = int(os.environ.get("DEDUP_TTL_SECONDS", "1800"))
 ENABLE_AMP = os.environ.get("ENABLE_AMP", "false").lower() == "true"
 WEBHOOK_SECRET       = os.environ.get("WEBHOOK_SECRET", "")
-# When True, emits MultiAgentIncidentCreated instead of IncidentBundleCreated,
+# When True, emits SentinelPipelineTriggered instead of SignalBundled,
 # routing the incident into the Step Functions multi-agent pipeline.
 ENABLE_MULTI_AGENT   = os.environ.get("ENABLE_MULTI_AGENT", "false").lower() == "true"
 
@@ -260,7 +260,7 @@ def handler(event, context):
     )
     _log("info", "bundle_stored", incident_id=incident_id, s3_key=key)
 
-    event_type = "MultiAgentIncidentCreated" if ENABLE_MULTI_AGENT else "IncidentBundleCreated"
+    event_type = "SentinelPipelineTriggered" if ENABLE_MULTI_AGENT else "SignalBundled"
     _emit(event_type, {
         "incident_id": incident_id,
         "s3_bucket": INCIDENT_BUCKET,

@@ -39,7 +39,7 @@ os.environ.setdefault("EVENT_BUS_NAME", "test-bus")
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import importlib
-import verifier.app as app
+import outcome_validator.app as app
 
 importlib.reload(app)
 
@@ -104,7 +104,7 @@ class TestSlack(unittest.TestCase):
 
 
 class TestHandlerRecovered(unittest.TestCase):
-    """When error rate is below threshold, emit RemediationVerified."""
+    """When error rate is below threshold, emit OutcomeValidated."""
 
     def test_verified_when_low_error_rate(self):
         with (
@@ -117,7 +117,7 @@ class TestHandlerRecovered(unittest.TestCase):
         self.assertEqual(resp["statusCode"], 200)
         body = json.loads(resp["body"])
         self.assertTrue(body["recovered"])
-        mock_emit.assert_called_once_with("RemediationVerified", unittest.mock.ANY)
+        mock_emit.assert_called_once_with("OutcomeValidated", unittest.mock.ANY)
 
     def test_failed_when_high_error_rate(self):
         app.AUTO_REVERT_ON_FAIL = False  # disable revert for this test
@@ -131,7 +131,7 @@ class TestHandlerRecovered(unittest.TestCase):
         self.assertEqual(resp["statusCode"], 200)
         body = json.loads(resp["body"])
         self.assertFalse(body["recovered"])
-        mock_emit.assert_called_once_with("RemediationFailed", unittest.mock.ANY)
+        mock_emit.assert_called_once_with("OutcomeFailed", unittest.mock.ANY)
         app.AUTO_REVERT_ON_FAIL = True
 
 

@@ -16,6 +16,7 @@ variable "enable_multi_agent" {
   type    = bool
   default = false
 }
+variable "audit_table_name" { type = string }
 
 data "archive_file" "zip" {
   type        = "zip"
@@ -24,7 +25,7 @@ data "archive_file" "zip" {
 }
 
 resource "aws_lambda_function" "this" {
-  function_name                  = "${var.project_name}-lambda_incident_bundler"
+  function_name                  = "${var.project_name}-signal-collector"
   role                           = var.role_arn
   runtime                        = "python3.11"
   handler                        = "app.handler"
@@ -47,6 +48,7 @@ resource "aws_lambda_function" "this" {
       ENABLE_K8S_READONLY  = tostring(var.enable_k8s_readonly_enrichment)
       WEBHOOK_SECRET       = var.webhook_secret
       ENABLE_MULTI_AGENT   = tostring(var.enable_multi_agent)
+      AUDIT_TABLE_NAME     = var.audit_table_name
     }
   }
 }

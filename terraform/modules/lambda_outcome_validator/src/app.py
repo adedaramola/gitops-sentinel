@@ -196,7 +196,7 @@ def handler(event, context):
     except Exception:
         recovered = False
 
-    status = "RemediationVerified" if recovered else "RemediationFailed"
+    status = "OutcomeValidated" if recovered else "OutcomeFailed"
 
     revert_result = None
     if (not recovered) and AUTO_REVERT_ON_FAIL and GITHUB_OWNER and GITHUB_REPO and GITHUB_TOKEN_SECRET_ARN:

@@ -43,6 +43,7 @@ _SESSION = _make_session()
 s3 = boto3.client("s3")
 secrets = boto3.client("secretsmanager")
 bedrock = boto3.client("bedrock-runtime", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+dynamodb = boto3.client("dynamodb")
 
 # ── Config from environment ───────────────────────────────────────────────────
 GITHUB_API = "https://api.github.com"
@@ -53,9 +54,28 @@ MODEL_PROVIDER = os.environ.get("MODEL_PROVIDER", "bedrock")
 ALLOWED_ACTIONS_PATH = os.environ.get("ALLOWED_ACTIONS_PATH", "gitops/policies/allowed-actions.yaml")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 OPENAI_SECRET_ARN = os.environ.get("OPENAI_SECRET_ARN", "")
+AUDIT_TABLE_NAME = os.environ.get("AUDIT_TABLE_NAME", "")
 
 # ── GitHub token cache (persists across warm Lambda invocations) ──────────────
 _token_cache: dict = {"value": None, "expires_at": 0.0}
+
+
+def _audit_write(incident_id: str, record: dict) -> None:
+    """Write a decision record to the audit log table. Fails silently."""
+    if not AUDIT_TABLE_NAME:
+        return
+    try:
+        dynamodb.put_item(
+            TableName=AUDIT_TABLE_NAME,
+            Item={
+                "incident_id": {"S": incident_id},
+                "event_time":  {"N": str(int(time.time()))},
+                "ttl":         {"N": str(int(time.time()) + 90 * 86400)},
+                **{k: {"S": str(v)} for k, v in record.items()},
+            },
+        )
+    except Exception as exc:  # noqa: BLE001
+        _log("warning", "audit_write_failed", error=str(exc))
 
 
 def _get_secret_json(arn: str) -> dict:
@@ -249,7 +269,7 @@ def _patch_image_deployment(deploy_yaml: str, new_tag: str) -> str:
 
 
 def handler(event, context):
-    """Triggered by EventBridge on IncidentBundleCreated. Reads incident bundle
+    """Triggered by EventBridge on SignalBundled. Reads incident bundle
     from S3, proposes remediation via LLM, and opens a PR."""
     detail = event.get("detail", {})
     bucket = detail["s3_bucket"]
@@ -362,6 +382,17 @@ Revert this PR.
     pr = _open_pr(GITHUB_OWNER, GITHUB_REPO, pr_title, pr_body, head=branch, base=base_branch, token=token)
     _log("info", "pr_opened", incident_id=incident_id, action=action,
          pr_number=pr.get("number"), pr_url=pr.get("html_url"))
+
+    _audit_write(incident_id, {
+        "stage":       "action_dispatched",
+        "action":      action,
+        "service":     service,
+        "env":         env,
+        "confidence":  str(plan.get("risk", "unknown")),
+        "rationale":   plan.get("rationale", ""),
+        "pr_url":      pr.get("html_url", ""),
+        "outcome":     "pending",
+    })
 
     return {"statusCode": 200, "body": json.dumps({
         "message": "PR opened",

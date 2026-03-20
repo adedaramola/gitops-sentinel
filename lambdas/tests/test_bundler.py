@@ -52,7 +52,7 @@ os.environ.setdefault("WEBHOOK_SECRET", "")
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import importlib
-import incident_bundler.app as app
+import signal_collector.app as app
 
 importlib.reload(app)  # ensure env vars are picked up
 

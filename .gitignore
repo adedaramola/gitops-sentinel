@@ -54,3 +54,7 @@ __pycache__/
 
 # Artifacts
 ALL_ARTIFACTS_MANIFEST.md
+
+# Terraform-generated Lambda deployment packages
+function.zip
+*.zip

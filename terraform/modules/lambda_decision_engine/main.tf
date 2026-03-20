@@ -1,13 +1,13 @@
 variable "project_name" { type = string }
 variable "role_arn" { type = string }
-variable "aws_region" { type = string }
-variable "cluster_name" { type = string }
-variable "prometheus_query_url" { type = string }
-variable "slack_webhook_url" { type = string }
-variable "event_bus_name" { type = string }
 variable "github_owner" { type = string }
 variable "github_repo" { type = string }
 variable "github_token_secret_arn" { type = string }
+variable "model_provider" { type = string }
+variable "aws_region" { type = string }
+variable "cluster_name" { type = string }
+variable "prometheus_query_url" { type = string }
+variable "audit_table_name"    { type = string }
 
 data "archive_file" "zip" {
   type        = "zip"
@@ -16,12 +16,12 @@ data "archive_file" "zip" {
 }
 
 resource "aws_lambda_function" "this" {
-  function_name                  = "${var.project_name}-lambda_verifier"
+  function_name                  = "${var.project_name}-decision-engine"
   role                           = var.role_arn
   runtime                        = "python3.11"
   handler                        = "app.handler"
   filename                       = data.archive_file.zip.output_path
-  timeout                        = 60
+  timeout                        = 120
   reserved_concurrent_executions = 5
 
   tracing_config {
@@ -30,14 +30,14 @@ resource "aws_lambda_function" "this" {
 
   environment {
     variables = {
+      GITHUB_OWNER               = var.github_owner
+      GITHUB_REPO                = var.github_repo
       GITHUB_APP_TOKEN_SECRET_ARN = var.github_token_secret_arn
-      GITHUB_REPO                 = var.github_repo
-      GITHUB_OWNER                = var.github_owner
-      AUTO_REVERT_ON_FAIL         = "true"
-      CLUSTER_NAME                = var.cluster_name
-      PROMETHEUS_QUERY_URL        = var.prometheus_query_url
-      SLACK_WEBHOOK_URL           = var.slack_webhook_url
-      EVENT_BUS_NAME              = var.event_bus_name
+      MODEL_PROVIDER             = var.model_provider
+      ALLOWED_ACTIONS_PATH       = "gitops/policies/allowed-actions.yaml"
+      CLUSTER_NAME               = var.cluster_name
+      PROMETHEUS_QUERY_URL       = var.prometheus_query_url
+      AUDIT_TABLE_NAME           = var.audit_table_name
     }
   }
 }

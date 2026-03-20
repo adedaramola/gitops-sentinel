@@ -14,7 +14,7 @@ data "archive_file" "zip" {
 }
 
 resource "aws_lambda_function" "this" {
-  function_name                  = "${var.project_name}-triage-agent"
+  function_name                  = "${var.project_name}-root-cause-agent"
   role                           = var.role_arn
   runtime                        = "python3.11"
   handler                        = "app.handler"

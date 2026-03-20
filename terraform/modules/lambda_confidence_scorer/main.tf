@@ -9,7 +9,7 @@ data "archive_file" "zip" {
 }
 
 resource "aws_lambda_function" "this" {
-  function_name                  = "${var.project_name}-risk-agent"
+  function_name                  = "${var.project_name}-confidence-scorer"
   role                           = var.role_arn
   runtime                        = "python3.11"
   handler                        = "app.handler"

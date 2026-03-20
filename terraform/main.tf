@@ -41,7 +41,6 @@ module "eks" {
   enable_cluster_creator_admin_permissions = true
   cluster_endpoint_public_access           = true
 
-
   create_kms_key            = false
   cluster_encryption_config = {}
 
@@ -78,14 +77,14 @@ module "gatekeeper" {
 }
 
 ########################
-# Eventing + Incident store
+# Eventing + Signal store
 ########################
 module "eventing" {
   source       = "./modules/eventbridge"
   project_name = local.name
 }
 
-module "incidents_bucket" {
+module "signals_bucket" {
   source       = "./modules/s3_incidents"
   project_name = local.name
 }
@@ -93,27 +92,28 @@ module "incidents_bucket" {
 module "iam" {
   source              = "./modules/iam"
   project_name        = local.name
-  incident_bucket_arn = module.incidents_bucket.bucket_arn
+  incident_bucket_arn = module.signals_bucket.bucket_arn
   event_bus_arn       = module.eventing.event_bus_arn
 }
 
-module "bundler_lambda" {
-  source                         = "./modules/lambda_incident_bundler"
+module "signal_collector_lambda" {
+  source                         = "./modules/lambda_signal_collector"
   project_name                   = local.name
-  incident_bucket_name           = module.incidents_bucket.bucket_name
+  incident_bucket_name           = module.signals_bucket.bucket_name
   event_bus_name                 = module.eventing.event_bus_name
   role_arn                       = module.iam.bundler_role_arn
   aws_region                     = var.aws_region
   cluster_name                   = var.cluster_name
   prometheus_query_url           = var.prometheus_query_url
   enable_k8s_readonly_enrichment = var.enable_k8s_readonly_enrichment
-  incidents_table_name           = module.incidents_table.table_name
+  incidents_table_name           = module.signals_table.table_name
   webhook_secret                 = var.webhook_secret
   enable_multi_agent             = var.enable_multi_agent
+  audit_table_name               = module.audit_log.table_name
 }
 
-module "agent_lambda" {
-  source                  = "./modules/lambda_llm_agent"
+module "decision_engine_lambda" {
+  source                  = "./modules/lambda_decision_engine"
   project_name            = local.name
   role_arn                = module.iam.agent_role_arn
   github_owner            = var.github_owner
@@ -123,10 +123,11 @@ module "agent_lambda" {
   aws_region              = var.aws_region
   cluster_name            = var.cluster_name
   prometheus_query_url    = var.prometheus_query_url
+  audit_table_name        = module.audit_log.table_name
 }
 
-module "verifier_lambda" {
-  source                  = "./modules/lambda_verifier"
+module "outcome_validator_lambda" {
+  source                  = "./modules/lambda_outcome_validator"
   project_name            = local.name
   role_arn                = module.iam.verifier_role_arn
   aws_region              = var.aws_region
@@ -137,29 +138,30 @@ module "verifier_lambda" {
   github_owner            = var.github_owner
   github_repo             = var.github_repo
   github_token_secret_arn = var.github_token_secret_arn
+  audit_table_name        = module.audit_log.table_name
 }
 
 ########################
 # Multi-agent Lambda functions
 ########################
-module "triage_agent" {
-  source           = "./modules/lambda_triage_agent"
-  project_name     = local.name
-  role_arn         = module.iam.triage_agent_role_arn
-  aws_region       = var.aws_region
-  model_provider   = var.model_provider
+module "classifier_agent" {
+  source         = "./modules/lambda_classifier_agent"
+  project_name   = local.name
+  role_arn       = module.iam.triage_agent_role_arn
+  aws_region     = var.aws_region
+  model_provider = var.model_provider
 }
 
-module "diagnosis_agent" {
-  source           = "./modules/lambda_diagnosis_agent"
-  project_name     = local.name
-  role_arn         = module.iam.diagnosis_agent_role_arn
-  aws_region       = var.aws_region
-  model_provider   = var.model_provider
+module "root_cause_agent" {
+  source         = "./modules/lambda_root_cause_agent"
+  project_name   = local.name
+  role_arn       = module.iam.diagnosis_agent_role_arn
+  aws_region     = var.aws_region
+  model_provider = var.model_provider
 }
 
-module "remediation_agent" {
-  source                  = "./modules/lambda_remediation_agent"
+module "action_planner_agent" {
+  source                  = "./modules/lambda_action_planner"
   project_name            = local.name
   role_arn                = module.iam.remediation_agent_role_arn
   aws_region              = var.aws_region
@@ -169,24 +171,24 @@ module "remediation_agent" {
   github_token_secret_arn = var.github_token_secret_arn
 }
 
-module "risk_agent" {
-  source       = "./modules/lambda_risk_agent"
+module "confidence_scorer_agent" {
+  source       = "./modules/lambda_confidence_scorer"
   project_name = local.name
   role_arn     = module.iam.risk_agent_role_arn
   aws_region   = var.aws_region
 }
 
 ########################
-# Step Functions — multi-agent pipeline
+# Step Functions — sentinel pipeline
 ########################
-module "multi_agent_pipeline" {
+module "sentinel_pipeline" {
   source                 = "./modules/step_functions"
   project_name           = local.name
-  triage_lambda_arn      = module.triage_agent.lambda_arn
-  diagnosis_lambda_arn   = module.diagnosis_agent.lambda_arn
-  remediation_lambda_arn = module.remediation_agent.lambda_arn
-  risk_lambda_arn        = module.risk_agent.lambda_arn
-  agent_lambda_arn       = module.agent_lambda.lambda_arn
+  triage_lambda_arn      = module.classifier_agent.lambda_arn
+  diagnosis_lambda_arn   = module.root_cause_agent.lambda_arn
+  remediation_lambda_arn = module.action_planner_agent.lambda_arn
+  risk_lambda_arn        = module.confidence_scorer_agent.lambda_arn
+  agent_lambda_arn       = module.decision_engine_lambda.lambda_arn
   sfn_role_arn           = module.iam.sfn_role_arn
 }
 
@@ -197,49 +199,49 @@ module "rules" {
   source               = "./modules/eventbridge_rules"
   project_name         = local.name
   event_bus_name       = module.eventing.event_bus_name
-  bundler_lambda_arn   = module.bundler_lambda.lambda_arn
-  agent_lambda_arn     = module.agent_lambda.lambda_arn
-  verifier_lambda_arn  = module.verifier_lambda.lambda_arn
-  sfn_arn              = module.multi_agent_pipeline.state_machine_arn
+  bundler_lambda_arn   = module.signal_collector_lambda.lambda_arn
+  agent_lambda_arn     = module.decision_engine_lambda.lambda_arn
+  verifier_lambda_arn  = module.outcome_validator_lambda.lambda_arn
+  sfn_arn              = module.sentinel_pipeline.state_machine_arn
   events_sfn_role_arn  = module.iam.events_sfn_role_arn
 }
 
 ########################
 # Permissions: allow EventBridge -> Lambda invoke
 ########################
-resource "aws_lambda_permission" "eventbridge_invoke_bundler" {
-  statement_id  = "AllowExecutionFromEventBridgeBundler"
+resource "aws_lambda_permission" "eventbridge_invoke_signal_collector" {
+  statement_id  = "AllowExecutionFromEventBridgeSignalCollector"
   action        = "lambda:InvokeFunction"
-  function_name = module.bundler_lambda.lambda_name
+  function_name = module.signal_collector_lambda.lambda_name
   principal     = "events.amazonaws.com"
   source_arn    = module.rules.alert_in_rule_arn
 }
 
-resource "aws_lambda_permission" "eventbridge_invoke_agent" {
-  statement_id  = "AllowExecutionFromEventBridgeAgent"
+resource "aws_lambda_permission" "eventbridge_invoke_decision_engine" {
+  statement_id  = "AllowExecutionFromEventBridgeDecisionEngine"
   action        = "lambda:InvokeFunction"
-  function_name = module.agent_lambda.lambda_name
+  function_name = module.decision_engine_lambda.lambda_name
   principal     = "events.amazonaws.com"
   source_arn    = module.rules.bundle_created_rule_arn
 }
 
-resource "aws_lambda_permission" "eventbridge_invoke_verifier" {
-  statement_id  = "AllowExecutionFromEventBridgeVerifier"
+resource "aws_lambda_permission" "eventbridge_invoke_outcome_validator" {
+  statement_id  = "AllowExecutionFromEventBridgeOutcomeValidator"
   action        = "lambda:InvokeFunction"
-  function_name = module.verifier_lambda.lambda_name
+  function_name = module.outcome_validator_lambda.lambda_name
   principal     = "events.amazonaws.com"
   source_arn    = module.rules.verify_rule_arn
 }
 
 ########################
-# API Gateway (Webhook intake) -> Bundler Lambda
+# API Gateway (Webhook intake) -> Signal Collector Lambda
 ########################
 module "webhook" {
   source              = "./modules/apigw_webhook"
   count               = var.enable_api_gateway ? 1 : 0
   project_name        = local.name
-  bundler_lambda_arn  = module.bundler_lambda.lambda_arn
-  bundler_lambda_name = module.bundler_lambda.lambda_name
+  bundler_lambda_arn  = module.signal_collector_lambda.lambda_arn
+  bundler_lambda_name = module.signal_collector_lambda.lambda_name
 }
 
 output "webhook_url" {
@@ -248,7 +250,12 @@ output "webhook_url" {
 }
 
 
-module "incidents_table" {
+module "signals_table" {
   source       = "./modules/dynamodb_incidents"
+  project_name = local.name
+}
+
+module "audit_log" {
+  source       = "./modules/dynamodb_audit_log"
   project_name = local.name
 }

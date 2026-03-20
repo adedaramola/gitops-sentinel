@@ -191,5 +191,5 @@ def handler(event, context):
         ContentType="application/json",
     )
 
-    _emit("IncidentBundleCreated", {"incident_id": incident_id, "s3_bucket": INCIDENT_BUCKET, "s3_key": key, "service": service, "env": env})
+    _emit("SignalBundled", {"incident_id": incident_id, "s3_bucket": INCIDENT_BUCKET, "s3_key": key, "service": service, "env": env})
     return {"statusCode": 200, "body": json.dumps({"incident_id": incident_id, "s3_key": key})}
