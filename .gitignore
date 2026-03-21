@@ -58,3 +58,15 @@ ALL_ARTIFACTS_MANIFEST.md
 # Terraform-generated Lambda deployment packages
 function.zip
 *.zip
+
+# Pip-installed Lambda dependencies (installed into src/ at build time, not source)
+terraform/modules/lambda_*/src/bin/
+terraform/modules/lambda_*/src/*.dist-info/
+terraform/modules/lambda_*/src/certifi/
+terraform/modules/lambda_*/src/charset_normalizer/
+terraform/modules/lambda_*/src/idna/
+terraform/modules/lambda_*/src/requests/
+terraform/modules/lambda_*/src/urllib3/
+terraform/modules/lambda_*/src/yaml/
+terraform/modules/lambda_*/src/_yaml/
+terraform/modules/lambda_*/src/*.so
