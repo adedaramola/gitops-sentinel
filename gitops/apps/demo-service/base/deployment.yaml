@@ -15,9 +15,9 @@ spec:
     spec:
       containers:
         - name: demo-service
-          image: ghcr.io/example/demo-service:1.0.1
+          image: kennethreitz/httpbin:latest
           ports:
-            - containerPort: 8080
+            - containerPort: 80
           env:
             - name: FEATURE_FLAG_X
               value: "false"
