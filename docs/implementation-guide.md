@@ -146,7 +146,7 @@ cd lambdas
 pytest tests/ -v
 ```
 
-You should see **33 passed**. If any tests fail, stop here and fix them before continuing.
+You should see **103 passed**. If any tests fail, stop here and fix them before continuing.
 
 ```bash
 cd ..  # back to repo root
@@ -330,8 +330,8 @@ kubectl get nodes
 Expected output:
 ```
 NAME                           STATUS   ROLES    AGE   VERSION
-ip-10-20-x-x.ec2.internal      Ready    <none>   5m    v1.32.x-eks-xxxxx
-ip-10-20-x-x.ec2.internal      Ready    <none>   5m    v1.32.x-eks-xxxxx
+ip-10-20-x-x.ec2.internal      Ready    <none>   5m    v1.33.x-eks-xxxxx
+ip-10-20-x-x.ec2.internal      Ready    <none>   5m    v1.33.x-eks-xxxxx
 ```
 
 If nodes show `NotReady`, wait another 2–3 minutes and try again.

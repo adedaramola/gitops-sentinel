@@ -2,7 +2,7 @@ variable "project_name" { type = string }
 variable "event_bus_name" { type = string }
 variable "bundler_lambda_arn" { type = string }
 variable "agent_lambda_arn" { type = string }
-variable "verifier_lambda_arn" { type = string }
+variable "outcome_validator_lambda_arn" { type = string }
 variable "sfn_arn" { type = string }
 variable "events_sfn_role_arn" { type = string }
 
@@ -75,7 +75,7 @@ resource "aws_cloudwatch_event_target" "bundle_to_agent" {
   }
 }
 
-# ── Rule 3: remediation applied -> verifier ───────────────────────────────────
+# ── Rule 3: remediation applied -> outcome_validator ─────────────────────────
 resource "aws_cloudwatch_event_rule" "verify" {
   name           = "${var.project_name}-verify"
   event_bus_name = var.event_bus_name
@@ -88,7 +88,7 @@ resource "aws_cloudwatch_event_rule" "verify" {
 resource "aws_cloudwatch_event_target" "verify_to_lambda" {
   rule           = aws_cloudwatch_event_rule.verify.name
   event_bus_name = var.event_bus_name
-  arn            = var.verifier_lambda_arn
+  arn            = var.outcome_validator_lambda_arn
 
   retry_policy {
     maximum_retry_attempts       = 2

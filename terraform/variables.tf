@@ -51,7 +51,7 @@ variable "enable_api_gateway" {
   default = true
 }
 
-# Optional: Amazon Managed Service for Prometheus (AMP) for verifier queries
+# Optional: Amazon Managed Service for Prometheus (AMP) for outcome_validator queries
 variable "enable_amp" {
   type    = bool
   default = false
@@ -78,7 +78,7 @@ variable "enable_k8s_readonly_enrichment" {
 variable "slack_webhook_url" {
   type        = string
   default     = ""
-  description = "Optional Slack webhook for verifier status updates."
+  description = "Optional Slack webhook for outcome_validator status updates."
 }
 
 # Webhook authentication
@@ -93,5 +93,5 @@ variable "webhook_secret" {
 variable "enable_multi_agent" {
   type        = bool
   default     = false
-  description = "When true, routes incidents through the Step Functions multi-agent pipeline instead of the single llm_agent Lambda."
+  description = "When true, routes incidents through the Step Functions multi-agent pipeline instead of the single decision_engine Lambda."
 }

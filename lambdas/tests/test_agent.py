@@ -1,4 +1,4 @@
-"""Unit tests for llm_agent/app.py"""
+"""Unit tests for decision_engine/app.py"""
 import json
 import os
 import sys
@@ -165,6 +165,84 @@ class TestLlmPlanFallback(unittest.TestCase):
         app.bedrock.invoke_model = MagicMock(return_value=mock_resp)
         plan = app._llm_plan(self._bundle(), self._allowed())
         self.assertNotEqual(plan["action"], "delete_cluster")
+
+
+class TestPatchImageEdgeCases(unittest.TestCase):
+    """Edge cases specific to the YAML-based _patch_image_deployment."""
+
+    def test_registry_with_port_preserves_base(self):
+        # rsplit(":", 1) must not split on the registry port
+        yaml_with_port = """\
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          image: registry.example.com:5000/org/app:v1.0.0
+"""
+        result = app._patch_image_deployment(yaml_with_port, "v2.0.0")
+        self.assertIn("registry.example.com:5000/org/app:v2.0.0", result)
+        self.assertNotIn(":v1.0.0", result)
+
+    def test_no_image_field_returns_valid_yaml(self):
+        yaml_no_image = "kind: Service\nmetadata:\n  name: svc\n"
+        result = app._patch_image_deployment(yaml_no_image, "v2.0.0")
+        # Should not raise and should return parseable YAML
+        import yaml as _yaml
+        doc = _yaml.safe_load(result)
+        self.assertEqual(doc["kind"], "Service")
+
+    def test_no_image_field_unchanged(self):
+        yaml_no_image = "kind: Service\n"
+        result = app._patch_image_deployment(yaml_no_image, "v2.0.0")
+        self.assertNotIn("v2.0.0", result)
+
+
+class TestPatchReplicasEdgeCases(unittest.TestCase):
+    """Edge cases specific to the YAML-based _patch_replicas_kustomize."""
+
+    _KUSTOMIZE_MULTI_PATCH = """\
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+    target:
+      kind: Deployment
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 512Mi
+    target:
+      kind: Deployment
+"""
+
+    def test_only_replicas_patch_is_updated(self):
+        result = app._patch_replicas_kustomize(self._KUSTOMIZE_MULTI_PATCH, 7)
+        self.assertIn("value: 7", result)
+        # Memory patch should be untouched
+        self.assertIn("512Mi", result)
+
+    def test_raises_when_no_replicas_op(self):
+        kustomize_no_replicas = """\
+patches:
+  - patch: |-
+      - op: replace
+        path: /metadata/labels/version
+        value: v2
+    target:
+      kind: Deployment
+"""
+        with self.assertRaises(ValueError):
+            app._patch_replicas_kustomize(kustomize_no_replicas, 5)
+
+    def test_output_is_valid_yaml(self):
+        import yaml as _yaml
+        result = app._patch_replicas_kustomize(KUSTOMIZE_WITH_REPLICAS, 4)
+        # Should not raise
+        _yaml.safe_load(result)
 
 
 if __name__ == "__main__":

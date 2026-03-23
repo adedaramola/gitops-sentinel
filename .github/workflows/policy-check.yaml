@@ -14,28 +14,66 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pyyaml
-      - name: Enforce simple bounds
+      - name: Enforce policy bounds
         run: |
           python - <<'PY'
-          import yaml, re, pathlib, sys
+          import yaml, pathlib, sys
+
+          def get_constraint(allowed, action, key, default=None):
+              for a in allowed.get("allowed_actions", []):
+                  if a.get("action") == action:
+                      return a.get("constraints", {}).get(key, default)
+              return default
+
           allowed = yaml.safe_load(pathlib.Path("gitops/policies/allowed-actions.yaml").read_text())
-          max_rep = None
-          for a in allowed.get("allowed_actions", []):
-            if a.get("action") == "scale_replicas":
-              max_rep = a.get("constraints", {}).get("max")
-          if max_rep is None:
-            print("No replica bound found; skipping")
-            sys.exit(0)
-          # naive parse of overlay kustomization for 'value: <int>' line
-          for env in ["staging","prod"]:
-            p = pathlib.Path(f"gitops/apps/demo-service/overlays/{env}/kustomization.yaml")
-            if not p.exists(): 
-              continue
-            txt = p.read_text()
-            m = re.search(r"^\s*value:\s*(\d+)\s*$", txt, re.M)
-            if m:
-              rep = int(m.group(1))
-              if rep > int(max_rep):
-                raise SystemExit(f"{env} replicas {rep} exceeds max {max_rep}")
-          print("Policy OK")
+          violations = []
+
+          # ── scale_replicas: enforce min/max on every kustomization in the repo ──
+          min_rep = get_constraint(allowed, "scale_replicas", "min", 1)
+          max_rep = get_constraint(allowed, "scale_replicas", "max")
+
+          for kfile in sorted(pathlib.Path("gitops/apps").rglob("kustomization.yaml")):
+              doc = yaml.safe_load(kfile.read_text()) or {}
+              for patch_entry in doc.get("patches", []):
+                  patch_str = patch_entry.get("patch", "")
+                  if not patch_str:
+                      continue
+                  ops = yaml.safe_load(patch_str) or []
+                  if not isinstance(ops, list):
+                      continue
+                  for op in ops:
+                      if op.get("path") == "/spec/replicas":
+                          replicas = op.get("value")
+                          if replicas is None:
+                              continue
+                          if max_rep is not None and int(replicas) > int(max_rep):
+                              violations.append(f"{kfile}: replicas {replicas} exceeds max {max_rep}")
+                          if int(replicas) < int(min_rep):
+                              violations.append(f"{kfile}: replicas {replicas} below min {min_rep}")
+
+          # ── rollback_image: enforce allowed image tags in all deployment.yaml files ──
+          allowed_tags = get_constraint(allowed, "rollback_image", "allowed_tags", [])
+
+          if allowed_tags:
+              for dfile in sorted(pathlib.Path("gitops/apps").rglob("deployment.yaml")):
+                  doc = yaml.safe_load(dfile.read_text()) or {}
+                  try:
+                      containers = doc["spec"]["template"]["spec"]["containers"]
+                  except (KeyError, TypeError):
+                      continue
+                  for c in containers:
+                      image = c.get("image", "")
+                      if ":" in image:
+                          tag = image.rsplit(":", 1)[1]
+                          if tag not in allowed_tags:
+                              violations.append(f"{dfile}: image tag '{tag}' not in allowed_tags {allowed_tags}")
+
+          if violations:
+              print("Policy violations found:")
+              for v in violations:
+                  print(f"  x {v}")
+              sys.exit(1)
+
+          checked = len(list(pathlib.Path("gitops/apps").rglob("*.yaml")))
+          print(f"Policy OK — {checked} manifest(s) checked")
           PY

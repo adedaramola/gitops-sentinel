@@ -2,7 +2,6 @@ import base64
 import json
 import logging
 import os
-import re
 import time
 
 import boto3
@@ -23,12 +22,6 @@ if not LOG.handlers:
 def _log(level: str, msg: str, **ctx):
     LOG.log(getattr(logging, level.upper()), json.dumps({"level": level.upper(), "msg": msg, **ctx}))
 
-
-# ── Pre-compiled regex patterns ───────────────────────────────────────────────
-_RE_REPLICAS_LINE = re.compile(r"^\s*value:\s*\d+\s*$")
-_RE_REPLICAS_SUB = re.compile(r"(\s*value:\s*)\d+")
-_RE_IMAGE_TAG = re.compile(r"(image:\s+\S+?:)([^\s]+)")
-_RE_IMAGE_ROLLBACK = re.compile(r"(image:\s+[\w.\-\/]+:)[^\s]+")
 
 # ── HTTP session with retries ─────────────────────────────────────────────────
 def _make_session() -> requests.Session:
@@ -244,28 +237,45 @@ Respond with valid JSON only:
         _log("warning", "llm_plan_fallback", error=str(exc))
         p = _choose_action_heuristic(bundle, allowed)
         p.update({"risk": "low", "rationale": "Fallback heuristic plan."})
-        p.setdefault("target", {}).setdefault("service", bundle.get("service", "demo-service"))
+        p.setdefault("target", {}).setdefault("service", bundle.get("service", "unknown"))
         p.setdefault("target", {}).setdefault("env", bundle.get("env", "staging"))
         return p
 
 
 def _patch_replicas_kustomize(kustomize_text: str, new_replicas: int) -> str:
-    lines = kustomize_text.splitlines()
-    out = []
-    replaced = False
-    for ln in lines:
-        if (not replaced) and _RE_REPLICAS_LINE.match(ln):
-            out.append(_RE_REPLICAS_SUB.sub(r"\g<1>" + str(new_replicas), ln))
-            replaced = True
-        else:
-            out.append(ln)
-    if not replaced:
-        raise ValueError("Could not locate replicas value line to patch.")
-    return "\n".join(out) + "\n"
+    """Parse the kustomization YAML and update the /spec/replicas JSON Patch value."""
+    doc = yaml.safe_load(kustomize_text)
+    patched = False
+    for patch_entry in doc.get("patches", []):
+        patch_str = patch_entry.get("patch", "")
+        if not patch_str:
+            continue
+        ops = yaml.safe_load(patch_str)
+        if not isinstance(ops, list):
+            continue
+        for op in ops:
+            if op.get("path") == "/spec/replicas":
+                op["value"] = new_replicas
+                patched = True
+        if patched:
+            patch_entry["patch"] = yaml.dump(ops, default_flow_style=False).rstrip()
+            break
+    if not patched:
+        raise ValueError("Could not locate /spec/replicas patch operation.")
+    return yaml.dump(doc, default_flow_style=False)
 
 
 def _patch_image_deployment(deploy_yaml: str, new_tag: str) -> str:
-    return _RE_IMAGE_TAG.sub(r"\g<1>" + new_tag, deploy_yaml)
+    """Parse the deployment YAML and replace the first container's image tag."""
+    doc = yaml.safe_load(deploy_yaml)
+    try:
+        containers = doc["spec"]["template"]["spec"]["containers"]
+        if containers:
+            base = containers[0]["image"].rsplit(":", 1)[0]
+            containers[0]["image"] = f"{base}:{new_tag}"
+    except (KeyError, IndexError, TypeError):
+        pass  # no image found; return unchanged
+    return yaml.dump(doc, default_flow_style=False)
 
 
 def handler(event, context):
@@ -285,7 +295,7 @@ def handler(event, context):
     plan = _llm_plan(bundle, allowed)
     action = plan["action"]
     env = (plan.get("target") or {}).get("env") or bundle.get("env", "staging")
-    service = (plan.get("target") or {}).get("service") or bundle.get("service", "demo-service")
+    service = (plan.get("target") or {}).get("service") or bundle.get("service", "unknown")
 
     branch = f"ai/{incident_id}-{action}"
     base_branch = "main"
@@ -334,7 +344,7 @@ Revert this PR.
     changes = []
 
     if action == "scale_replicas":
-        target_path = f"gitops/apps/demo-service/overlays/{env}/kustomization.yaml"
+        target_path = f"gitops/apps/{service}/overlays/{env}/kustomization.yaml"
         file_obj = _get_file(GITHUB_OWNER, GITHUB_REPO, target_path, base_branch, token)
         original = base64.b64decode(file_obj["content"]).decode("utf-8")
         replicas = int(plan.get("params", {}).get("replicas", 3))
@@ -345,37 +355,48 @@ Revert this PR.
 
     elif action == "rollback_image":
         tag = plan.get("params", {}).get("tag", "previous")
-        deploy_path = "gitops/apps/demo-service/base/deployment.yaml"
+        deploy_path = f"gitops/apps/{service}/base/deployment.yaml"
         file_obj = _get_file(GITHUB_OWNER, GITHUB_REPO, deploy_path, base_branch, token)
         original = base64.b64decode(file_obj["content"]).decode("utf-8")
-        patched = _RE_IMAGE_ROLLBACK.sub(r"\g<1>" + tag, original).encode("utf-8")
+        patched = _patch_image_deployment(original, tag).encode("utf-8")
         _put_file(GITHUB_OWNER, GITHUB_REPO, deploy_path,
                   f"[AI] {incident_id}: rollback image", patched, file_obj["sha"], branch, token)
         changes.append(deploy_path)
 
     elif action == "tune_resources":
-        deploy_path = "gitops/apps/demo-service/base/deployment.yaml"
+        deploy_path = f"gitops/apps/{service}/base/deployment.yaml"
         file_obj = _get_file(GITHUB_OWNER, GITHUB_REPO, deploy_path, base_branch, token)
         original = base64.b64decode(file_obj["content"]).decode("utf-8")
-        patched = original.replace('memory: "512Mi"', 'memory: "768Mi"').encode("utf-8")
+        params = plan.get("params", {})
+        mem_target = params.get("memory")
+        cpu_target = params.get("cpu")
+        doc = yaml.safe_load(original)
+        for container in (doc.get("spec", {}).get("template", {})
+                             .get("spec", {}).get("containers", [])):
+            limits = container.setdefault("resources", {}).setdefault("limits", {})
+            if mem_target:
+                limits["memory"] = mem_target
+            if cpu_target:
+                limits["cpu"] = cpu_target
+        patched = yaml.dump(doc, default_flow_style=False).encode("utf-8")
         _put_file(GITHUB_OWNER, GITHUB_REPO, deploy_path,
                   f"[AI] {incident_id}: tune resources", patched, file_obj["sha"], branch, token)
         changes.append(deploy_path)
 
     elif action == "restart_rollout":
-        deploy_path = "gitops/apps/demo-service/base/deployment.yaml"
+        deploy_path = f"gitops/apps/{service}/base/deployment.yaml"
         file_obj = _get_file(GITHUB_OWNER, GITHUB_REPO, deploy_path, base_branch, token)
         original = base64.b64decode(file_obj["content"]).decode("utf-8")
         stamp = str(int(time.time()))
-        if "metadata:" in original and "annotations:" not in original:
-            patched = original.replace(
-                "metadata:\n",
-                f"metadata:\n  annotations:\n    gitops.sentinel/restartAt: \"{stamp}\"\n",
-            )
-        else:
-            patched = original + f"\n# gitops.sentinel/restartAt: {stamp}\n"
+        doc = yaml.safe_load(original)
+        (doc.setdefault("spec", {})
+            .setdefault("template", {})
+            .setdefault("metadata", {})
+            .setdefault("annotations", {})
+            ["gitops.sentinel/restartedAt"]) = stamp
+        patched = yaml.dump(doc, default_flow_style=False).encode("utf-8")
         _put_file(GITHUB_OWNER, GITHUB_REPO, deploy_path,
-                  f"[AI] {incident_id}: restart rollout", patched.encode("utf-8"),
+                  f"[AI] {incident_id}: restart rollout", patched,
                   file_obj["sha"], branch, token)
         changes.append(deploy_path)
 

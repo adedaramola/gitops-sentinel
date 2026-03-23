@@ -1,4 +1,4 @@
-"""Unit tests for verifier/app.py"""
+"""Unit tests for outcome_validator/app.py"""
 import json
 import os
 import sys

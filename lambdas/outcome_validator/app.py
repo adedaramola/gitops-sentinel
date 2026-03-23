@@ -236,7 +236,7 @@ def _auto_revert(token: str, incident_id: str):
 
     title = f"[AI] Revert remediation for {incident_id}"
     body = (
-        f"Verifier detected remediation failure for `{incident_id}`.\n\n"
+        f"Outcome Validator detected remediation failure for `{incident_id}`.\n\n"
         f"This PR restores files changed by the AI remediation PR #{pr_number} "
         f"back to `{base_branch}` state.\n\nRestored paths:\n- "
         + "\n- ".join(restored)
@@ -255,7 +255,7 @@ def _auto_revert(token: str, incident_id: str):
 def handler(event, context):
     detail = event.get("detail", {}) if isinstance(event, dict) else {}
     incident_id = _extract_incident_id(detail)
-    service = detail.get("service", "demo-service")
+    service = detail.get("service", "unknown")
     _log("info", "validator_started", incident_id=incident_id, service=service)
 
     err = _prom_query(f'sum(rate(http_requests_total{{service="{service}",status=~"5.."}}[5m]))')

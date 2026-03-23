@@ -31,6 +31,9 @@ override.tf.json
 
 # Ignore tfplan output files (may contain sensitive data)
 *tfplan*
+terraform/tfplan
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
 
 # Ignore CLI configuration files
 .terraformrc

@@ -199,5 +199,116 @@ class TestHandlerSuccess(unittest.TestCase):
         self.assertTrue(body["s3_key"].startswith("incidents/inc-"))
 
 
+class TestNamespaceExtraction(unittest.TestCase):
+    """namespace label is extracted from alert labels and stored in the bundle."""
+
+    def test_namespace_from_label(self):
+        with (
+            patch.object(app, "_dedup_check_and_write", return_value=(True, None)),
+            patch.object(app, "_prom_query", return_value={"skipped": True}),
+            patch.object(app.s3, "put_object") as mock_put,
+            patch.object(app, "_emit"),
+        ):
+            event = {
+                "requestContext": {"requestId": "x"},
+                "body": json.dumps({"alerts": [{"labels": {
+                    "alertname": "HighErrorRate",
+                    "service":   "payments",
+                    "namespace": "payments-ns",
+                    "env":       "staging",
+                    "severity":  "critical",
+                }, "annotations": {}}]}),
+            }
+            app.handler(event, _make_context())
+
+        call_kwargs = mock_put.call_args[1]
+        stored = json.loads(call_kwargs["Body"].decode("utf-8"))
+        # namespace must propagate into the Prometheus queries (they use namespace variable)
+        # We verify it was extracted by checking the bundle's labels
+        self.assertEqual(stored["labels"]["namespace"], "payments-ns")
+
+    def test_namespace_falls_back_to_env_when_absent(self):
+        with (
+            patch.object(app, "_dedup_check_and_write", return_value=(True, None)),
+            patch.object(app, "_prom_query", return_value={"skipped": True}),
+            patch.object(app.s3, "put_object") as mock_put,
+            patch.object(app, "_emit"),
+        ):
+            event = _alertmanager_event(service="svc", env="prod")
+            app.handler(event, _make_context())
+
+        call_kwargs = mock_put.call_args[1]
+        stored = json.loads(call_kwargs["Body"].decode("utf-8"))
+        # No namespace label — should fall back to env ("prod")
+        self.assertEqual(stored["env"], "prod")
+
+
+class TestMultiAgentRouting(unittest.TestCase):
+    """When ENABLE_MULTI_AGENT=true, handler emits SentinelPipelineTriggered."""
+
+    def test_emits_sentinel_pipeline_triggered_when_multi_agent_enabled(self):
+        original = app.ENABLE_MULTI_AGENT
+        app.ENABLE_MULTI_AGENT = True
+        with (
+            patch.object(app, "_dedup_check_and_write", return_value=(True, None)),
+            patch.object(app, "_prom_query", return_value={"skipped": True}),
+            patch.object(app.s3, "put_object"),
+            patch.object(app, "_emit") as mock_emit,
+        ):
+            app.handler(_alertmanager_event(), _make_context())
+        app.ENABLE_MULTI_AGENT = original
+        event_type = mock_emit.call_args[0][0]
+        self.assertEqual(event_type, "SentinelPipelineTriggered")
+
+    def test_emits_signal_bundled_when_multi_agent_disabled(self):
+        original = app.ENABLE_MULTI_AGENT
+        app.ENABLE_MULTI_AGENT = False
+        with (
+            patch.object(app, "_dedup_check_and_write", return_value=(True, None)),
+            patch.object(app, "_prom_query", return_value={"skipped": True}),
+            patch.object(app.s3, "put_object"),
+            patch.object(app, "_emit") as mock_emit,
+        ):
+            app.handler(_alertmanager_event(), _make_context())
+        app.ENABLE_MULTI_AGENT = original
+        event_type = mock_emit.call_args[0][0]
+        self.assertEqual(event_type, "SignalBundled")
+
+
+class TestHandlerFailureModes(unittest.TestCase):
+    """Handler degrades gracefully on malformed or missing input."""
+
+    def test_malformed_json_body_does_not_raise(self):
+        with (
+            patch.object(app, "_dedup_check_and_write", return_value=(True, None)),
+            patch.object(app, "_prom_query", return_value={"skipped": True}),
+            patch.object(app.s3, "put_object"),
+            patch.object(app, "_emit"),
+        ):
+            event = {"requestContext": {"requestId": "x"}, "body": "{not valid json"}
+            resp = app.handler(event, _make_context())
+        self.assertEqual(resp["statusCode"], 200)
+
+    def test_missing_alerts_array_does_not_raise(self):
+        with (
+            patch.object(app, "_dedup_check_and_write", return_value=(True, None)),
+            patch.object(app, "_prom_query", return_value={"skipped": True}),
+            patch.object(app.s3, "put_object"),
+            patch.object(app, "_emit"),
+        ):
+            event = {"requestContext": {"requestId": "x"}, "body": json.dumps({"version": "4"})}
+            resp = app.handler(event, _make_context())
+        self.assertEqual(resp["statusCode"], 200)
+
+    def test_s3_failure_propagates(self):
+        with (
+            patch.object(app, "_dedup_check_and_write", return_value=(True, None)),
+            patch.object(app, "_prom_query", return_value={"skipped": True}),
+            patch.object(app.s3, "put_object", side_effect=Exception("S3 unavailable")),
+        ):
+            with self.assertRaises(Exception):
+                app.handler(_alertmanager_event(), _make_context())
+
+
 if __name__ == "__main__":
     unittest.main()

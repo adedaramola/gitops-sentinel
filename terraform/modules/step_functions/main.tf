@@ -3,7 +3,7 @@ variable "triage_lambda_arn" { type = string }
 variable "diagnosis_lambda_arn" { type = string }
 variable "remediation_lambda_arn" { type = string }
 variable "risk_lambda_arn" { type = string }
-variable "agent_lambda_arn" { type = string } # existing llm_agent for PR opening
+variable "agent_lambda_arn" { type = string } # decision_engine Lambda used for PR opening
 variable "sfn_role_arn" { type = string }
 
 resource "aws_sfn_state_machine" "multi_agent" {
@@ -97,10 +97,13 @@ resource "aws_sfn_state_machine" "multi_agent" {
 
       RemediationFallback = {
         Type = "Pass"
-        Result = {
-          action       = "restart_rollout"
-          params       = {}
-          target       = { service = "demo-service", env = "staging" }
+        Parameters = {
+          action    = "restart_rollout"
+          params    = {}
+          "target" = {
+            "service.$" = "$.service"
+            "env.$"     = "$.env"
+          }
           reasoning    = "Heuristic fallback: restart_rollout is the safest default action."
           alternatives = []
         }
@@ -143,11 +146,11 @@ resource "aws_sfn_state_machine" "multi_agent" {
         Default = "OpenRemediationPR"
       }
 
-      # Phase 3 placeholder: auto_apply will merge the PR automatically
+      # auto_apply: high-confidence path — opens and immediately merges the PR
       QueueForAutoApply = {
         Type       = "Task"
         Resource   = var.agent_lambda_arn
-        Comment    = "Phase 3: auto-merge will be wired here. Currently opens PR like medium-confidence path."
+        Comment    = "High-confidence path: opens PR and merges without human review."
         ResultPath = "$.pr_result"
         Next       = "PipelineComplete"
       }

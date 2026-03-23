@@ -22,21 +22,31 @@ test: ## Run all unit tests
 .PHONY: test-cov
 test-cov: ## Run tests with coverage report
 	cd $(LAMBDAS_DIR) && $(PYTHON) -m pytest tests/ -v \
-		--cov=incident_bundler --cov=llm_agent --cov=verifier \
+		--cov=signal_collector --cov=decision_engine --cov=outcome_validator \
+		--cov=classifier_agent --cov=root_cause_agent \
+		--cov=action_planner --cov=confidence_scorer \
 		--cov-report=term-missing --cov-report=html:../coverage
 
 # ── Lint ──────────────────────────────────────────────────────────────────────
 .PHONY: lint
 lint: ## Lint Lambda source with ruff (pip install ruff)
-	ruff check $(LAMBDAS_DIR)/incident_bundler/app.py \
-	           $(LAMBDAS_DIR)/llm_agent/app.py \
-	           $(LAMBDAS_DIR)/verifier/app.py
+	ruff check $(LAMBDAS_DIR)/signal_collector/app.py \
+	           $(LAMBDAS_DIR)/decision_engine/app.py \
+	           $(LAMBDAS_DIR)/outcome_validator/app.py \
+	           $(LAMBDAS_DIR)/classifier_agent/app.py \
+	           $(LAMBDAS_DIR)/root_cause_agent/app.py \
+	           $(LAMBDAS_DIR)/action_planner/app.py \
+	           $(LAMBDAS_DIR)/confidence_scorer/app.py
 
 .PHONY: fmt
 fmt: ## Auto-format Lambda source with ruff
-	ruff format $(LAMBDAS_DIR)/incident_bundler/app.py \
-	            $(LAMBDAS_DIR)/llm_agent/app.py \
-	            $(LAMBDAS_DIR)/verifier/app.py
+	ruff format $(LAMBDAS_DIR)/signal_collector/app.py \
+	            $(LAMBDAS_DIR)/decision_engine/app.py \
+	            $(LAMBDAS_DIR)/outcome_validator/app.py \
+	            $(LAMBDAS_DIR)/classifier_agent/app.py \
+	            $(LAMBDAS_DIR)/root_cause_agent/app.py \
+	            $(LAMBDAS_DIR)/action_planner/app.py \
+	            $(LAMBDAS_DIR)/confidence_scorer/app.py
 
 # ── Terraform ─────────────────────────────────────────────────────────────────
 .PHONY: tf-init
@@ -62,7 +72,7 @@ tf-validate: ## Validate Terraform configuration
 # ── Lambda packaging ──────────────────────────────────────────────────────────
 .PHONY: package
 package: ## Zip each Lambda function for manual deployment
-	@for fn in incident_bundler llm_agent verifier; do \
+	@for fn in signal_collector decision_engine outcome_validator classifier_agent root_cause_agent action_planner confidence_scorer; do \
 		echo "Packaging $$fn..."; \
 		cd $(LAMBDAS_DIR)/$$fn && \
 		pip install -r ../requirements.txt -t ./package --quiet && \

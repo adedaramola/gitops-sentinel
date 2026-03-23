@@ -33,7 +33,7 @@ module "eks" {
   version = "~> 20.0"
 
   cluster_name    = var.cluster_name
-  cluster_version = "1.32"
+  cluster_version = "1.33"
 
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
@@ -201,7 +201,7 @@ module "rules" {
   event_bus_name      = module.eventing.event_bus_name
   bundler_lambda_arn  = module.signal_collector_lambda.lambda_arn
   agent_lambda_arn    = module.decision_engine_lambda.lambda_arn
-  verifier_lambda_arn = module.outcome_validator_lambda.lambda_arn
+  outcome_validator_lambda_arn = module.outcome_validator_lambda.lambda_arn
   sfn_arn             = module.sentinel_pipeline.state_machine_arn
   events_sfn_role_arn = module.iam.events_sfn_role_arn
 }

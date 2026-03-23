@@ -47,6 +47,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r lambdas/requirements.txt
-      - name: Run unit tests
+          pip install -r lambdas/requirements-dev.txt
+      - name: Run unit tests with coverage
         run: |
-          cd lambdas && python -m pytest tests/ -v
+          cd lambdas && python -m pytest tests/ -v \
+            --cov=signal_collector --cov=decision_engine --cov=outcome_validator \
+            --cov=classifier_agent --cov=root_cause_agent \
+            --cov=action_planner   --cov=confidence_scorer \
+            --cov-report=term-missing \
+            --cov-fail-under=70 \
+            --tb=short

@@ -1,44 +1,268 @@
 <mxfile host="app.diagrams.net">
-  <diagram name="AI-Powered GitOps POC">
-    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10">
+  <diagram name="GitOps Sentinel — Full Architecture">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
 
-        <mxCell id="obs" value="Observability Layer&#xa;- Prometheus&#xa;- Loki/ELK&#xa;- Traces&#xa;- Cloud Alerts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
-          <mxGeometry x="40" y="60" width="260" height="160" as="geometry"/>
+        <!-- ═══ SECTION LABELS ═══ -->
+        <mxCell id="lbl_ingestion" value="INGESTION" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="100" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lbl_pipeline" value="AGENT PIPELINE" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="550" y="230" width="140" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lbl_routing" value="CONFIDENCE-GATED ROUTING" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="680" y="530" width="220" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lbl_gitops" value="GITOPS CONTROL" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="530" y="832" width="140" height="20" as="geometry"/>
         </mxCell>
 
-        <mxCell id="agent" value="LLM Agent Layer&#xa;- Context Aggregation&#xa;- Root Cause Analysis&#xa;- Remediation Planning" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
-          <mxGeometry x="360" y="60" width="300" height="160" as="geometry"/>
+        <!-- ═══ INGESTION LAYER ═══ -->
+        <mxCell id="alertmanager" value="Alertmanager" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="50" width="130" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="gitops" value="GitOps Control&#xa;- Git Repo (PRs)&#xa;- CI Validation&#xa;- Argo CD / Flux" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="720" y="60" width="300" height="160" as="geometry"/>
+        <mxCell id="apigw" value="API Gateway&#xa;(HMAC-validated webhook)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="220" y="50" width="160" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="runtime" value="Runtime Systems&#xa;- Kubernetes&#xa;- Applications&#xa;- Cloud Resources" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="720" y="260" width="300" height="140" as="geometry"/>
+        <mxCell id="signal_collector" value="Signal Collector Lambda&#xa;&#xa;• Dedup check (DynamoDB)&#xa;• Enrich: Prometheus + k8s events&#xa;• Store bundle to S3&#xa;• Emit event to EventBridge" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="440" y="30" width="220" height="100" as="geometry"/>
         </mxCell>
 
-        <mxCell id="gov" value="Governance &amp; Safety&#xa;- RBAC&#xa;- Policy-as-code&#xa;- Security scans&#xa;- Approvals&#xa;- Audit logs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
-          <mxGeometry x="200" y="260" width="380" height="160" as="geometry"/>
+        <mxCell id="eventbridge" value="EventBridge&#xa;Custom Bus + 7-day archive" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="730" y="50" width="210" height="60" as="geometry"/>
         </mxCell>
 
-        <!-- Edges -->
-        <mxCell id="e1" style="endArrow=block;html=1;" edge="1" parent="1" source="obs" target="agent">
+        <!-- ═══ STORAGE ═══ -->
+        <mxCell id="dynamo_dedup" value="DynamoDB&#xa;Incident Dedup&#xa;(30-min TTL)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="390" y="190" width="140" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="s3" value="S3&#xa;Signal Bundles" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="550" y="190" width="140" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══ FEATURE FLAG NOTE ═══ -->
+        <mxCell id="flag_note" value="enable_multi_agent (feature flag)" style="text;html=1;strokeColor=#999999;fillColor=#f5f5f5;align=center;verticalAlign=middle;fontSize=10;fontStyle=2;fontColor=#666666;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="720" y="163" width="230" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══ SINGLE-AGENT PATH ═══ -->
+        <mxCell id="decision_engine" value="Decision Engine Lambda&#xa;(Single-agent path)&#xa;&#xa;• Reads S3 signal bundle&#xa;• LLM: root cause + plan&#xa;• Opens GitHub PR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="550" y="255" width="210" height="110" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══ MULTI-AGENT PATH — Step Functions ═══ -->
+        <mxCell id="sfn_container" value="Step Functions — Sentinel Pipeline (Multi-agent)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#d79b00;fontSize=11;fontStyle=1;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="830" y="158" width="240" height="335" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="classifier" value="1. Classifier Agent&#xa;severity · blast radius · priority" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="848" y="210" width="204" height="50" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="root_cause" value="2. Root Cause Agent&#xa;LLM analysis · confidence 0–100" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="848" y="278" width="204" height="50" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="action_planner" value="3. Action Planner&#xa;from allowed-actions.yaml" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="848" y="346" width="204" height="50" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="confidence_scorer" value="4. Confidence Scorer&#xa;deterministic · no LLM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="848" y="414" width="204" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══ CONFIDENCE ROUTER ═══ -->
+        <mxCell id="router" value="Confidence-Gated Router" style="rhombus;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="745" y="555" width="200" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══ ROUTING OUTCOMES ═══ -->
+        <mxCell id="auto_apply" value="auto_apply&#xa;score ≥ 80&#xa;(merge PR)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="510" y="715" width="130" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="open_pr_box" value="open_pr&#xa;score 40–79&#xa;(review PR)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="780" y="715" width="130" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="escalate" value="escalate&#xa;score &lt; 40&#xa;(page on-call)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="715" width="130" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══ GITOPS CONTROL ═══ -->
+        <mxCell id="github" value="GitHub Repo&#xa;(PR opened / merged)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="510" y="860" width="150" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ci" value="CI Validation&#xa;(Kustomize + pytest)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="720" y="860" width="160" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="argocd" value="Argo CD&#xa;(syncs cluster)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="950" y="860" width="150" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══ RUNTIME ═══ -->
+        <mxCell id="eks" value="EKS / Kubernetes&#xa;Applications&#xa;Cloud Resources" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="1170" y="860" width="160" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══ OUTCOME VALIDATION ═══ -->
+        <mxCell id="outcome_validator" value="Outcome Validator Lambda&#xa;&#xa;• Prometheus health check (+5 min)&#xa;• Emits OutcomeValidated&#xa;• Or opens revert PR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1155" y="685" width="215" height="100" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══ OBSERVABILITY ═══ -->
+        <mxCell id="obs" value="Observability&#xa;&#xa;• Prometheus&#xa;• Grafana&#xa;• Cloud Alerts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="40" y="420" width="160" height="100" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══ GOVERNANCE ═══ -->
+        <mxCell id="gov" value="Governance &amp; Safety&#xa;&#xa;• OPA / Gatekeeper policies&#xa;• Scoped IAM roles (per Lambda)&#xa;• DynamoDB Audit Log&#xa;• RBAC / Approvals" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="40" y="640" width="225" height="120" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!-- ═══ EDGES ═══                          -->
+        <!-- ═══════════════════════════════════════ -->
+
+        <!-- Alertmanager → API Gateway -->
+        <mxCell id="e1" style="endArrow=block;endFill=1;html=1;" edge="1" parent="1" source="alertmanager" target="apigw">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e2" style="endArrow=block;html=1;" edge="1" parent="1" source="agent" target="gitops">
+
+        <!-- API Gateway → Signal Collector -->
+        <mxCell id="e2" style="endArrow=block;endFill=1;html=1;" edge="1" parent="1" source="apigw" target="signal_collector">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e3" style="endArrow=block;html=1;" edge="1" parent="1" source="gitops" target="runtime">
+
+        <!-- Signal Collector → EventBridge -->
+        <mxCell id="e3" style="endArrow=block;endFill=1;html=1;" edge="1" parent="1" source="signal_collector" target="eventbridge">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e4" style="endArrow=block;html=1;dashed=1;" edge="1" parent="1" source="runtime" target="obs">
+
+        <!-- Signal Collector → DynamoDB (dashed, dedup write) -->
+        <mxCell id="e4" style="endArrow=block;endFill=0;html=1;dashed=1;" edge="1" parent="1" source="signal_collector" target="dynamo_dedup">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e5" style="endArrow=block;html=1;dashed=1;" edge="1" parent="1" source="gov" target="agent">
+
+        <!-- Signal Collector → S3 (dashed, bundle store) -->
+        <mxCell id="e5" style="endArrow=block;endFill=0;html=1;dashed=1;" edge="1" parent="1" source="signal_collector" target="s3">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- EventBridge → Decision Engine (FALSE / single-agent) -->
+        <mxCell id="e6" value="FALSE" style="endArrow=block;endFill=1;html=1;fontSize=10;fontStyle=2;" edge="1" parent="1" source="eventbridge" target="decision_engine">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- EventBridge → Step Functions (TRUE / multi-agent) -->
+        <mxCell id="e7" value="TRUE" style="endArrow=block;endFill=1;html=1;fontSize=10;fontStyle=2;" edge="1" parent="1" source="eventbridge" target="sfn_container">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Step Functions internal: Classifier → Root Cause -->
+        <mxCell id="e8" style="endArrow=block;endFill=1;html=1;" edge="1" parent="1" source="classifier" target="root_cause">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Step Functions internal: Root Cause → Action Planner -->
+        <mxCell id="e9" style="endArrow=block;endFill=1;html=1;" edge="1" parent="1" source="root_cause" target="action_planner">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Step Functions internal: Action Planner → Confidence Scorer -->
+        <mxCell id="e10" style="endArrow=block;endFill=1;html=1;" edge="1" parent="1" source="action_planner" target="confidence_scorer">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Decision Engine → Router -->
+        <mxCell id="e11" style="endArrow=block;endFill=1;html=1;" edge="1" parent="1" source="decision_engine" target="router">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Confidence Scorer → Router (exits Step Functions) -->
+        <mxCell id="e12" style="endArrow=block;endFill=1;html=1;" edge="1" parent="1" source="confidence_scorer" target="router">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Router → auto_apply -->
+        <mxCell id="e13" style="endArrow=block;endFill=1;html=1;" edge="1" parent="1" source="router" target="auto_apply">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Router → open_pr -->
+        <mxCell id="e14" style="endArrow=block;endFill=1;html=1;" edge="1" parent="1" source="router" target="open_pr_box">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Router → escalate -->
+        <mxCell id="e15" style="endArrow=block;endFill=1;html=1;" edge="1" parent="1" source="router" target="escalate">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- auto_apply → GitHub (merge) -->
+        <mxCell id="e16" style="endArrow=block;endFill=1;html=1;" edge="1" parent="1" source="auto_apply" target="github">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- open_pr → GitHub (review) -->
+        <mxCell id="e17" style="endArrow=block;endFill=1;html=1;" edge="1" parent="1" source="open_pr_box" target="github">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- GitHub → CI Validation -->
+        <mxCell id="e18" style="endArrow=block;endFill=1;html=1;" edge="1" parent="1" source="github" target="ci">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- CI Validation → Argo CD -->
+        <mxCell id="e19" style="endArrow=block;endFill=1;html=1;" edge="1" parent="1" source="ci" target="argocd">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Argo CD → EKS -->
+        <mxCell id="e20" style="endArrow=block;endFill=1;html=1;" edge="1" parent="1" source="argocd" target="eks">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- EKS → Outcome Validator (ActionDispatched event) -->
+        <mxCell id="e21" value="ActionDispatched" style="endArrow=block;endFill=1;html=1;fontSize=9;" edge="1" parent="1" source="eks" target="outcome_validator">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Outcome Validator → EventBridge (feedback loop, dashed) -->
+        <mxCell id="e22" value="OutcomeValidated / OutcomeFailed" style="endArrow=block;endFill=0;html=1;dashed=1;fontSize=9;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="outcome_validator" target="eventbridge">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1400" y="735"/>
+              <mxPoint x="1400" y="80"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- EKS → Observability (metrics scrape, dashed) -->
+        <mxCell id="e23" style="endArrow=block;endFill=0;html=1;dashed=1;" edge="1" parent="1" source="eks" target="obs">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Observability → Alertmanager (fires alerts, dashed) -->
+        <mxCell id="e24" value="alerts" style="endArrow=block;endFill=0;html=1;dashed=1;fontSize=9;" edge="1" parent="1" source="obs" target="alertmanager">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Governance → Decision Engine (policy constraints, dashed) -->
+        <mxCell id="e25" style="endArrow=block;endFill=0;html=1;dashed=1;" edge="1" parent="1" source="gov" target="decision_engine">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Governance → Step Functions (policy constraints, dashed) -->
+        <mxCell id="e26" style="endArrow=block;endFill=0;html=1;dashed=1;" edge="1" parent="1" source="gov" target="sfn_container">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 

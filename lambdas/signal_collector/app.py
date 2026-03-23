@@ -177,6 +177,7 @@ def handler(event, context):
 
     alertname = labels.get("alertname", "unknown")
     service = labels.get("service", "unknown")
+    namespace = labels.get("namespace", labels.get("env", "unknown"))
     env = labels.get("env", labels.get("environment", "unknown"))
     severity = labels.get("severity", "unknown")
 
@@ -192,11 +193,11 @@ def handler(event, context):
         "error_rate_5xx": _prom_query(
             f'sum(rate(http_requests_total{{service="{service}",status=~"5.."}}[5m]))'
         ),
-        "cpu_usage_demo_ns": _prom_query(
-            'sum(rate(container_cpu_usage_seconds_total{namespace="demo"}[5m]))'
+        "cpu_usage": _prom_query(
+            f'sum(rate(container_cpu_usage_seconds_total{{namespace="{namespace}",pod=~"{service}.*"}}[5m]))'
         ),
-        "mem_working_set_demo_ns": _prom_query(
-            'sum(container_memory_working_set_bytes{namespace="demo"})'
+        "mem_working_set": _prom_query(
+            f'sum(container_memory_working_set_bytes{{namespace="{namespace}",pod=~"{service}.*"}})'
         ),
     }
 
@@ -209,10 +210,10 @@ def handler(event, context):
             with open(ca_path, "wb") as f:
                 f.write(ca)
             token = _eks_token(CLUSTER_NAME)
-            k8s_events = _k8s_get(endpoint, token, "/api/v1/namespaces/demo/events?limit=20", ca_path)
+            k8s_events = _k8s_get(endpoint, token, f"/api/v1/namespaces/{namespace}/events?limit=20", ca_path)
             dep = _k8s_get(
                 endpoint, token,
-                "/apis/apps/v1/namespaces/demo/deployments/demo-service",
+                f"/apis/apps/v1/namespaces/{namespace}/deployments/{service}",
                 ca_path,
             )
             k8s = {

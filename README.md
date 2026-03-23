@@ -74,7 +74,7 @@ Alertmanager / CloudWatch
 | `outcome_validator` | Post-remediation health check: queries Prometheus, emits `OutcomeValidated` or `OutcomeFailed`, triggers auto-revert if needed |
 | `classifier_agent` | Multi-agent: classifies severity, incident type, blast radius |
 | `root_cause_agent` | Multi-agent: LLM root cause analysis with diagnosis confidence score |
-| `action_planner_agent` | Multi-agent: proposes action from `allowed-actions.yaml`, with alternatives |
+| `action_planner` | Multi-agent: proposes action from `allowed-actions.yaml`, with alternatives |
 | `confidence_scorer` | Multi-agent: pure deterministic scoring — no LLM, no latency, no cost |
 
 ### Infrastructure Modules
@@ -98,7 +98,9 @@ Alertmanager / CloudWatch
 
 1. **Alertmanager** fires a webhook → API Gateway validates HMAC secret
 2. **Signal Collector** deduplicates (DynamoDB conditional write), enriches with Prometheus metrics and k8s events, stores bundle in S3, emits `SignalBundled` or `SentinelPipelineTriggered` to EventBridge
-3. **Sentinel Pipeline** (Step Functions) runs: Classifier → Root Cause → Action Planner → Confidence Scorer → RouteByConfidence
+3. **Agent pipeline** (behaviour depends on `enable_multi_agent` flag):
+   - **Single-agent** (default, `enable_multi_agent = false`): Decision Engine Lambda reads the bundle, queries the LLM, opens a GitHub PR. No confidence scoring.
+   - **Multi-agent** (`enable_multi_agent = true`): Step Functions pipeline runs Classifier → Root Cause → Action Planner → Confidence Scorer → RouteByConfidence
 4. **GitHub PR** is opened (or auto-merged) with the proposed change to the GitOps manifest
 5. **Argo CD** detects the merged commit and syncs the cluster
 6. **Outcome Validator** queries Prometheus 5 minutes post-remediation and emits the outcome event
@@ -148,7 +150,7 @@ pip install -r lambdas/requirements-dev.txt
 cd lambdas && pytest tests/ -v
 
 # Lint
-cd lambdas && flake8 . --max-line-length=120
+make lint
 
 # Terraform
 cd terraform
@@ -175,7 +177,7 @@ The `webhook_url` output is the endpoint to configure in Alertmanager's `receive
 
 | Component | ~Monthly (us-east-1) |
 |---|---|
-| EKS cluster (1.32, 2× t2.medium) | ~$140 |
+| EKS cluster (1.33, 2× t2.medium) | ~$140 |
 | Lambda invocations | < $5 |
 | EventBridge + Step Functions | < $5 |
 | DynamoDB + S3 | < $3 |
@@ -196,15 +198,37 @@ The `webhook_url` output is the endpoint to configure in Alertmanager's `receive
 │   ├── root_cause_agent/       # Multi-agent: root cause analysis
 │   ├── action_planner/         # Multi-agent: remediation planning
 │   ├── confidence_scorer/      # Multi-agent: deterministic scoring
-│   └── tests/                  # Unit tests (33 tests, 100% pass)
+│   └── tests/                  # Unit tests (7 Lambda functions covered)
 ├── terraform/
 │   ├── main.tf                 # Root module
 │   ├── variables.tf
 │   ├── outputs.tf
-│   └── modules/                # 12+ custom Terraform modules
+│   └── modules/                # 18 custom Terraform modules
 ├── Makefile                    # install / test / lint / tf-* targets
 └── docs/                       # Architecture diagrams, runbooks
 ```
+
+---
+
+## Known Limitations
+
+These are deliberate scope decisions for a portfolio project, not production gaps that went unnoticed.
+
+**Routing / confidence gating**
+- The three-tier confidence table (auto_apply / open_pr / escalate) is only active when `enable_multi_agent = true`. The default single-agent path (`enable_multi_agent = false`) opens a PR without confidence scoring — suitable for demo and cost-sensitive environments.
+
+**Service and namespace resolution**
+- The service name and namespace are derived directly from Alertmanager alert labels (`service`, `namespace`). Alerts that omit these labels fall back to `"unknown"`, which will cause the GitOps write path to target `gitops/apps/unknown/...`. Ensure your Prometheus rules and Alertmanager configs emit these labels.
+- The GitOps write path assumes `gitops/apps/{service}/` matches the directory layout in the repo. Services with different naming conventions require a mapping layer not yet implemented.
+
+**Policy enforcement**
+- OPA/Gatekeeper is deployed as a Helm chart but no Constraint or ConstraintTemplate resources are defined out of the box. The `policy-check.yaml` CI step enforces replica bounds and image tag allowlists at PR time; runtime admission control requires adding OPA policies.
+- The `tune_resources` action reads `memory` and `cpu` targets from the LLM plan params. If the LLM does not populate these fields, no resource change is committed.
+
+**Infrastructure**
+- Lambda source code exists in two places: `lambdas/` (local dev/test) and `terraform/modules/lambda_*/src/` (deployed). They must be kept in sync manually. A symlink or build step would eliminate this.
+- No rate limiting is applied to the webhook endpoint beyond API Gateway defaults.
+- The EKS cluster runs `t2.medium` nodes (burstable). CPU-intensive workloads may experience throttling under sustained load.
 
 ---
 

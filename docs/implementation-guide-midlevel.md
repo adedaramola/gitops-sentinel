@@ -79,7 +79,7 @@ Outcome Validator Lambda
 │   ├── action_planner/app.py        # Step Functions: action proposal
 │   ├── confidence_scorer/app.py     # Step Functions: deterministic scoring
 │   ├── requirements.txt
-│   └── tests/                       # 33 unit tests, full stub isolation
+│   └── tests/                       # 103 unit tests, full stub isolation
 │
 ├── terraform/
 │   ├── main.tf                      # Root module — wires everything together
@@ -360,10 +360,10 @@ The Decision Engine tries Bedrock/OpenAI first and falls back to the heuristic i
 prometheus_query_url = "http://your-prometheus:9090"
 ```
 
-The Signal Collector queries:
+The Signal Collector queries (namespace and service are taken from the alert labels):
 - `rate(http_requests_total{status=~"5.."}[5m])` — error rate
-- `rate(container_cpu_usage_seconds_total{namespace="demo"}[5m])` — CPU
-- `container_memory_working_set_bytes{namespace="demo"}` — memory
+- `rate(container_cpu_usage_seconds_total{namespace="{namespace}",pod=~"{service}.*"}[5m])` — CPU
+- `container_memory_working_set_bytes{namespace="{namespace}",pod=~"{service}.*"}` — memory
 
 The Outcome Validator queries the same error rate metric post-remediation and validates it drops below 20%.
 
