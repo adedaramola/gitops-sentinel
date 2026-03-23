@@ -160,7 +160,7 @@ module "root_cause_agent" {
   model_provider = var.model_provider
 }
 
-module "action_planner_agent" {
+module "action_planner" {
   source                  = "./modules/lambda_action_planner"
   project_name            = local.name
   role_arn                = module.iam.action_planner_role_arn
@@ -186,7 +186,7 @@ module "sentinel_pipeline" {
   project_name           = local.name
   triage_lambda_arn      = module.classifier_agent.lambda_arn
   diagnosis_lambda_arn   = module.root_cause_agent.lambda_arn
-  remediation_lambda_arn = module.action_planner_agent.lambda_arn
+  remediation_lambda_arn = module.action_planner.lambda_arn
   risk_lambda_arn        = module.confidence_scorer_agent.lambda_arn
   agent_lambda_arn       = module.decision_engine_lambda.lambda_arn
   sfn_role_arn           = module.iam.sfn_role_arn
