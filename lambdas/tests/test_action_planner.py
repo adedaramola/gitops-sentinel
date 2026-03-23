@@ -29,9 +29,7 @@ sys.modules.setdefault("urllib3",              urllib3_stub)
 sys.modules.setdefault("urllib3.util",         urllib3_util_stub)
 sys.modules.setdefault("urllib3.util.retry",   urllib3_retry_stub)
 
-yaml_stub = types.ModuleType("yaml")
-yaml_stub.safe_load = MagicMock(return_value={})
-sys.modules.setdefault("yaml", yaml_stub)
+# yaml (PyYAML) is a real installed dependency — no stub needed.
 
 os.environ.setdefault("GITHUB_OWNER",               "test-org")
 os.environ.setdefault("GITHUB_REPO",                "test-repo")

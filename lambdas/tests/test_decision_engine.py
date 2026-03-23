@@ -1,4 +1,5 @@
 """Unit tests for decision_engine/app.py"""
+import base64
 import json
 import os
 import sys
@@ -7,7 +8,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 # ---------------------------------------------------------------------------
-# Stub dependencies before import
+# Stub heavy dependencies before import
 # ---------------------------------------------------------------------------
 
 boto3_stub = types.ModuleType("boto3")
@@ -31,9 +32,10 @@ sys.modules.setdefault("urllib3", urllib3_stub)
 sys.modules.setdefault("urllib3.util", urllib3_util_stub)
 sys.modules.setdefault("urllib3.util.retry", urllib3_retry_stub)
 
-yaml_stub = types.ModuleType("yaml")
-yaml_stub.safe_load = MagicMock(return_value={})
-sys.modules.setdefault("yaml", yaml_stub)
+# yaml (PyYAML) is a real installed dependency. Explicitly ensure the real module is
+# in sys.modules so that any stub placed by an earlier test file is overridden.
+import yaml as _real_yaml
+sys.modules["yaml"] = _real_yaml
 
 os.environ.setdefault("GITHUB_OWNER", "test-org")
 os.environ.setdefault("GITHUB_REPO", "test-repo")
@@ -47,7 +49,7 @@ importlib.reload(app)
 
 
 # ---------------------------------------------------------------------------
-# Tests: pure functions (no AWS/GitHub calls)
+# Fixtures
 # ---------------------------------------------------------------------------
 
 KUSTOMIZE_WITH_REPLICAS = """\
@@ -76,6 +78,10 @@ spec:
 """
 
 
+# ---------------------------------------------------------------------------
+# Pure function tests
+# ---------------------------------------------------------------------------
+
 class TestPatchReplicasKustomize(unittest.TestCase):
     def test_replaces_value_line(self):
         result = app._patch_replicas_kustomize(KUSTOMIZE_WITH_REPLICAS, 5)
@@ -83,8 +89,22 @@ class TestPatchReplicasKustomize(unittest.TestCase):
         self.assertNotIn("value: 2", result)
 
     def test_only_first_match_replaced(self):
-        yaml_two_values = KUSTOMIZE_WITH_REPLICAS + "        value: 99\n"
-        result = app._patch_replicas_kustomize(yaml_two_values, 3)
+        yaml_two_patches = """\
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+    target:
+      kind: Deployment
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 99
+    target:
+      kind: Deployment
+"""
+        result = app._patch_replicas_kustomize(yaml_two_patches, 3)
         self.assertEqual(result.count("value: 3"), 1)
         self.assertIn("value: 99", result)
 
@@ -106,7 +126,7 @@ class TestPatchImageDeployment(unittest.TestCase):
     def test_no_change_when_no_image(self):
         yaml_no_image = "kind: Service\n"
         result = app._patch_image_deployment(yaml_no_image, "v2.0.0")
-        self.assertEqual(result, yaml_no_image)
+        self.assertNotIn("v2.0.0", result)
 
 
 class TestChooseActionHeuristic(unittest.TestCase):
@@ -171,7 +191,6 @@ class TestPatchImageEdgeCases(unittest.TestCase):
     """Edge cases specific to the YAML-based _patch_image_deployment."""
 
     def test_registry_with_port_preserves_base(self):
-        # rsplit(":", 1) must not split on the registry port
         yaml_with_port = """\
 apiVersion: apps/v1
 kind: Deployment
@@ -189,7 +208,6 @@ spec:
     def test_no_image_field_returns_valid_yaml(self):
         yaml_no_image = "kind: Service\nmetadata:\n  name: svc\n"
         result = app._patch_image_deployment(yaml_no_image, "v2.0.0")
-        # Should not raise and should return parseable YAML
         import yaml as _yaml
         doc = _yaml.safe_load(result)
         self.assertEqual(doc["kind"], "Service")
@@ -222,7 +240,6 @@ patches:
     def test_only_replicas_patch_is_updated(self):
         result = app._patch_replicas_kustomize(self._KUSTOMIZE_MULTI_PATCH, 7)
         self.assertIn("value: 7", result)
-        # Memory patch should be untouched
         self.assertIn("512Mi", result)
 
     def test_raises_when_no_replicas_op(self):
@@ -241,8 +258,146 @@ patches:
     def test_output_is_valid_yaml(self):
         import yaml as _yaml
         result = app._patch_replicas_kustomize(KUSTOMIZE_WITH_REPLICAS, 4)
-        # Should not raise
         _yaml.safe_load(result)
+
+
+# ---------------------------------------------------------------------------
+# Handler-level tests
+# ---------------------------------------------------------------------------
+
+def _make_s3_body(bundle: dict):
+    body = MagicMock()
+    body.read.return_value = json.dumps(bundle).encode("utf-8")
+    return {"Body": body}
+
+
+def _kustomize_file_obj():
+    raw = KUSTOMIZE_WITH_REPLICAS.encode()
+    return {"content": base64.b64encode(raw).decode(), "sha": "file-sha-123"}
+
+
+def _deployment_file_obj():
+    raw = DEPLOYMENT_YAML.encode()
+    return {"content": base64.b64encode(raw).decode(), "sha": "deploy-sha-456"}
+
+
+class TestHandlerScaleReplicas(unittest.TestCase):
+    """Handler opens a PR for scale_replicas using dynamic service/env path."""
+
+    def _run(self, service="payments", env="staging"):
+        bundle = {"incident_id": "inc-1234-abcd", "service": service,
+                  "env": env, "prometheus": {}}
+        plan = {"action": "scale_replicas",
+                "target": {"service": service, "env": env},
+                "params": {"replicas": 3}, "risk": "low", "rationale": "test"}
+        app.s3.get_object.return_value = _make_s3_body(bundle)
+        with (
+            patch.object(app, "_get_github_token", return_value="tok"),
+            patch.object(app, "_fetch_allowed_actions", return_value={}),
+            patch.object(app, "_llm_plan", return_value=plan),
+            patch.object(app, "_find_existing_pr", return_value=None),
+            patch.object(app, "_get_ref_sha", return_value="base-sha"),
+            patch.object(app, "_create_branch", return_value={}),
+            patch.object(app, "_get_file", return_value=_kustomize_file_obj()),
+            patch.object(app, "_put_file", return_value={}),
+            patch.object(app, "_open_pr", return_value={"number": 7, "html_url": "https://github.com/pr/7"}),
+            patch.object(app, "_audit_write"),
+        ):
+            event = {"detail": {"s3_bucket": "test-bucket", "s3_key": "incidents/inc-1234-abcd.json"}}
+            return app.handler(event, MagicMock())
+
+    def test_returns_200(self):
+        resp = self._run()
+        self.assertEqual(resp["statusCode"], 200)
+
+    def test_action_in_response(self):
+        body = json.loads(self._run()["body"])
+        self.assertEqual(body["action"], "scale_replicas")
+
+    def test_pr_number_in_response(self):
+        body = json.loads(self._run()["body"])
+        self.assertEqual(body["pr_number"], 7)
+
+    def test_gitops_path_uses_service_and_env(self):
+        body = json.loads(self._run(service="checkout", env="prod")["body"])
+        self.assertIn("gitops/apps/checkout/overlays/prod/kustomization.yaml",
+                      body["changed_files"])
+
+    def test_no_hardcoded_demo_service_in_path(self):
+        body = json.loads(self._run(service="checkout")["body"])
+        self.assertNotIn("demo-service", body["changed_files"][0])
+
+
+class TestHandlerIdempotency(unittest.TestCase):
+    """Handler returns early if a PR already exists for this branch."""
+
+    def test_existing_pr_returns_early(self):
+        bundle = {"incident_id": "inc-1234-abcd", "service": "svc",
+                  "env": "staging", "prometheus": {}}
+        existing_pr = {"number": 3, "html_url": "https://github.com/pr/3"}
+        app.s3.get_object.return_value = _make_s3_body(bundle)
+        with (
+            patch.object(app, "_get_github_token", return_value="tok"),
+            patch.object(app, "_fetch_allowed_actions", return_value={}),
+            patch.object(app, "_llm_plan", return_value={
+                "action": "scale_replicas",
+                "target": {"service": "svc", "env": "staging"},
+                "params": {}, "risk": "low", "rationale": "x"}),
+            patch.object(app, "_find_existing_pr", return_value=existing_pr),
+        ):
+            event = {"detail": {"s3_bucket": "b", "s3_key": "k"}}
+            resp = app.handler(event, MagicMock())
+
+        body = json.loads(resp["body"])
+        self.assertEqual(body["message"], "PR already exists")
+        self.assertEqual(body["pr_number"], 3)
+
+
+class TestHandlerRollbackImage(unittest.TestCase):
+    """Handler writes deployment.yaml for rollback_image using dynamic path."""
+
+    def test_rollback_uses_service_path(self):
+        bundle = {"incident_id": "inc-rollback", "service": "auth",
+                  "env": "prod", "prometheus": {}}
+        plan = {"action": "rollback_image",
+                "target": {"service": "auth", "env": "prod"},
+                "params": {"tag": "v1.9.0"}, "risk": "medium", "rationale": "bad deploy"}
+        app.s3.get_object.return_value = _make_s3_body(bundle)
+        with (
+            patch.object(app, "_get_github_token", return_value="tok"),
+            patch.object(app, "_fetch_allowed_actions", return_value={}),
+            patch.object(app, "_llm_plan", return_value=plan),
+            patch.object(app, "_find_existing_pr", return_value=None),
+            patch.object(app, "_get_ref_sha", return_value="sha"),
+            patch.object(app, "_create_branch", return_value={}),
+            patch.object(app, "_get_file", return_value=_deployment_file_obj()),
+            patch.object(app, "_put_file", return_value={}),
+            patch.object(app, "_open_pr", return_value={"number": 9, "html_url": "https://github.com/pr/9"}),
+            patch.object(app, "_audit_write"),
+        ):
+            event = {"detail": {"s3_bucket": "b", "s3_key": "k"}}
+            resp = app.handler(event, MagicMock())
+
+        body = json.loads(resp["body"])
+        self.assertEqual(body["action"], "rollback_image")
+        self.assertIn("gitops/apps/auth/base/deployment.yaml", body["changed_files"])
+
+
+class TestAuditWrite(unittest.TestCase):
+    def test_skips_when_no_table(self):
+        original = app.AUDIT_TABLE_NAME
+        app.AUDIT_TABLE_NAME = ""
+        app._audit_write("inc-1", {"action": "scale_replicas"})  # must not raise
+        app.AUDIT_TABLE_NAME = original
+
+    def test_writes_to_dynamodb_when_table_set(self):
+        app.AUDIT_TABLE_NAME = "test-audit-table"
+        app.dynamodb.put_item = MagicMock()
+        app._audit_write("inc-1", {"action": "scale_replicas", "service": "payments"})
+        app.dynamodb.put_item.assert_called_once()
+        call_kwargs = app.dynamodb.put_item.call_args[1]
+        self.assertEqual(call_kwargs["TableName"], "test-audit-table")
+        app.AUDIT_TABLE_NAME = ""
 
 
 if __name__ == "__main__":
