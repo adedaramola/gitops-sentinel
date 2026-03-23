@@ -51,9 +51,9 @@ jobs:
       - name: Run unit tests with coverage
         run: |
           cd lambdas && python -m pytest tests/ -v \
-            --cov=signal_collector --cov=decision_engine --cov=outcome_validator \
-            --cov=classifier_agent --cov=root_cause_agent \
-            --cov=action_planner   --cov=confidence_scorer \
+            --cov=signal_collector.app --cov=decision_engine.app --cov=outcome_validator.app \
+            --cov=classifier_agent.app --cov=root_cause_agent.app \
+            --cov=action_planner.app   --cov=confidence_scorer.app \
             --cov-report=term-missing \
             --cov-fail-under=70 \
             --tb=short

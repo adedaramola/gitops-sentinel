@@ -12,13 +12,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Extract incident id from last commit message
+      - name: Extract incident id and service from last commit message
         id: extract
         run: |
           MSG="$(git log -1 --pretty=%B)"
           echo "Commit message: $MSG"
           INC=$(echo "$MSG" | grep -oE "inc-[0-9]+-[a-z0-9]+" | head -n 1 || true)
+          SVC=$(echo "$MSG" | grep -oP '(?<=for )\S+(?= \()' | head -n 1 || true)
           echo "incident_id=$INC" >> $GITHUB_OUTPUT
+          echo "service=${SVC:-unknown}" >> $GITHUB_OUTPUT
 
       - name: Configure AWS credentials
         if: steps.extract.outputs.incident_id != ''
@@ -32,6 +34,7 @@ jobs:
         if: steps.extract.outputs.incident_id != ''
         env:
           INCIDENT_ID: ${{ steps.extract.outputs.incident_id }}
+          SERVICE: ${{ steps.extract.outputs.service }}
           EVENT_BUS_NAME: ${{ secrets.AWS_EVENT_BUS_NAME }}
         run: |
           cat > /tmp/eb-entry.json <<JSON
@@ -40,7 +43,7 @@ jobs:
               "EventBusName": "${EVENT_BUS_NAME}",
               "Source": "gitops.sentinel",
               "DetailType": "ActionDispatched",
-              "Detail": "{\"incident_id\":\"${INCIDENT_ID}\",\"service\":\"demo-service\"}"
+              "Detail": "{\"incident_id\":\"${INCIDENT_ID}\",\"service\":\"${SERVICE}\"}"
             }
           ]
           JSON

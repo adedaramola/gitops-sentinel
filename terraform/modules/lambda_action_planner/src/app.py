@@ -173,7 +173,7 @@ Respond with valid JSON only matching this schema:
         result = {
             "action":       "restart_rollout",
             "params":       {},
-            "target":       {"service": bundle.get("service", "demo-service"), "env": bundle.get("env", "staging")},
+            "target":       {"service": bundle.get("service", "unknown"), "env": bundle.get("env", "staging")},
             "reasoning":    "Heuristic fallback: restart_rollout is the safest default action.",
             "alternatives": [],
         }
