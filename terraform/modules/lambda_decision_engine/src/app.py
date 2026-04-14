@@ -299,7 +299,7 @@ def handler(event, context):
 
     branch = f"ai/{incident_id}-{action}"
     base_branch = "main"
-    pr_title = f"[AI] {incident_id}: {action} for {service} ({env})"
+    pr_title = f"{incident_id}: {action} for {service} ({env})"
     pr_body = f"""## Incident
 - Incident ID: `{incident_id}`
 - Bundle: s3://{bucket}/{key}
@@ -350,7 +350,7 @@ Revert this PR.
         replicas = int(plan.get("params", {}).get("replicas", 3))
         patched = _patch_replicas_kustomize(original, replicas).encode("utf-8")
         _put_file(GITHUB_OWNER, GITHUB_REPO, target_path,
-                  f"[AI] {incident_id}: scale replicas", patched, file_obj["sha"], branch, token)
+                  f"{incident_id}: scale replicas", patched, file_obj["sha"], branch, token)
         changes.append(target_path)
 
     elif action == "rollback_image":
@@ -360,7 +360,7 @@ Revert this PR.
         original = base64.b64decode(file_obj["content"]).decode("utf-8")
         patched = _patch_image_deployment(original, tag).encode("utf-8")
         _put_file(GITHUB_OWNER, GITHUB_REPO, deploy_path,
-                  f"[AI] {incident_id}: rollback image", patched, file_obj["sha"], branch, token)
+                  f"{incident_id}: rollback image", patched, file_obj["sha"], branch, token)
         changes.append(deploy_path)
 
     elif action == "tune_resources":
@@ -380,7 +380,7 @@ Revert this PR.
                 limits["cpu"] = cpu_target
         patched = yaml.dump(doc, default_flow_style=False).encode("utf-8")
         _put_file(GITHUB_OWNER, GITHUB_REPO, deploy_path,
-                  f"[AI] {incident_id}: tune resources", patched, file_obj["sha"], branch, token)
+                  f"{incident_id}: tune resources", patched, file_obj["sha"], branch, token)
         changes.append(deploy_path)
 
     elif action == "restart_rollout":
@@ -396,7 +396,7 @@ Revert this PR.
             ["gitops.sentinel/restartedAt"]) = stamp
         patched = yaml.dump(doc, default_flow_style=False).encode("utf-8")
         _put_file(GITHUB_OWNER, GITHUB_REPO, deploy_path,
-                  f"[AI] {incident_id}: restart rollout", patched,
+                  f"{incident_id}: restart rollout", patched,
                   file_obj["sha"], branch, token)
         changes.append(deploy_path)
 

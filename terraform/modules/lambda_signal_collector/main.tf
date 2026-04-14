@@ -30,6 +30,7 @@ resource "aws_lambda_function" "this" {
   runtime                        = "python3.11"
   handler                        = "app.handler"
   filename                       = data.archive_file.zip.output_path
+  source_code_hash               = data.archive_file.zip.output_base64sha256
   timeout                        = 60
   reserved_concurrent_executions = 10
 

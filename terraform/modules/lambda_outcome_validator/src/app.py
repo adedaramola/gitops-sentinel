@@ -221,11 +221,11 @@ def _auto_revert(token: str, incident_id: str):
                 cur_sha = None
 
             if cur_sha:
-                _put_file(token, path, f"[AI] revert {incident_id}: restore {path}",
+                _put_file(token, path, f"revert {incident_id}: restore {path}",
                           base_content, cur_sha, branch)
             else:
                 _gh("PUT", f"/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{path}", token, json={
-                    "message": f"[AI] revert {incident_id}: restore {path}",
+                    "message": f"revert {incident_id}: restore {path}",
                     "content": base64.b64encode(base_content).decode("utf-8"),
                     "branch": branch,
                 })
@@ -234,10 +234,10 @@ def _auto_revert(token: str, incident_id: str):
             _log("warning", "revert_file_failed", path=path, error=str(exc))
             continue
 
-    title = f"[AI] Revert remediation for {incident_id}"
+    title = f"Revert remediation for {incident_id}"
     body = (
         f"Outcome Validator detected remediation failure for `{incident_id}`.\n\n"
-        f"This PR restores files changed by the AI remediation PR #{pr_number} "
+        f"This PR restores files changed by remediation PR #{pr_number} "
         f"back to `{base_branch}` state.\n\nRestored paths:\n- "
         + "\n- ".join(restored)
     )
@@ -290,7 +290,7 @@ def handler(event, context):
     }
     _emit(status, payload)
 
-    msg = f"[AI-GitOps] {status} incident={incident_id} service={service} recovered={recovered}"
+    msg = f"[GitOps Sentinel] {status} incident={incident_id} service={service} recovered={recovered}"
     if revert_result and revert_result.get("revert_pr_url"):
         msg += f" | Revert PR: {revert_result['revert_pr_url']}"
     _slack(msg)
