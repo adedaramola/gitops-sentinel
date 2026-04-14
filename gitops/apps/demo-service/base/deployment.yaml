@@ -20,7 +20,7 @@ spec:
             - containerPort: 80
           env:
             - name: FEATURE_FLAG_X
-              value: "true"
+              value: "false"
           resources:
             requests:
               cpu: "100m"
