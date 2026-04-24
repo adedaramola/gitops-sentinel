@@ -37,6 +37,23 @@ s3 = boto3.client("s3")
 secrets = boto3.client("secretsmanager")
 bedrock = boto3.client("bedrock-runtime", region_name=os.environ.get("AWS_REGION", "us-east-1"))
 dynamodb = boto3.client("dynamodb")
+cw = boto3.client("cloudwatch")
+
+
+def _put_metric(name: str, value: float = 1.0, unit: str = "Count", **dims):
+    try:
+        cw.put_metric_data(
+            Namespace="GitOpsSentinel",
+            MetricData=[{
+                "MetricName": name,
+                "Value": value,
+                "Unit": unit,
+                "Dimensions": [{"Name": k, "Value": str(v)} for k, v in dims.items()],
+            }],
+        )
+    except Exception:
+        pass
+
 
 # ── Config from environment ───────────────────────────────────────────────────
 GITHUB_API = "https://api.github.com"
@@ -403,6 +420,7 @@ Revert this PR.
     pr = _open_pr(GITHUB_OWNER, GITHUB_REPO, pr_title, pr_body, head=branch, base=base_branch, token=token)
     _log("info", "pr_opened", incident_id=incident_id, action=action,
          pr_number=pr.get("number"), pr_url=pr.get("html_url"))
+    _put_metric("PRsOpened", Action=action)
 
     _audit_write(incident_id, {
         "stage":       "action_dispatched",

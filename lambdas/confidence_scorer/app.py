@@ -35,6 +35,22 @@ def _log(level: str, msg: str, **ctx):
 
 # ── AWS clients ───────────────────────────────────────────────────────────────
 s3 = boto3.client("s3")
+cw = boto3.client("cloudwatch")
+
+
+def _put_metric(name: str, value: float = 1.0, unit: str = "Count", **dims):
+    try:
+        cw.put_metric_data(
+            Namespace="GitOpsSentinel",
+            MetricData=[{
+                "MetricName": name,
+                "Value": value,
+                "Unit": unit,
+                "Dimensions": [{"Name": k, "Value": str(v)} for k, v in dims.items()],
+            }],
+        )
+    except Exception:
+        pass
 
 # ── Scoring tables ────────────────────────────────────────────────────────────
 _SEVERITY_PENALTY = {"critical": -25, "high": -15, "medium": -5, "low": 0}
@@ -114,6 +130,9 @@ def handler(event, context):
 
     confidence_score, risk_level, risk_factors = _score(triage, diagnosis, remediation)
     recommendation = _recommend(confidence_score, risk_level)
+
+    _put_metric("ConfidenceScore", value=float(confidence_score), unit="None")
+    _put_metric("RoutingDecision", Decision=recommendation)
 
     result = {
         "confidence_score": confidence_score,

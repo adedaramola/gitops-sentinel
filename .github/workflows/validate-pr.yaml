@@ -35,6 +35,53 @@ jobs:
           print("OK")
           PY
 
+  check-lambda-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail if Lambda sources are out of sync with Terraform modules
+        run: |
+          for fn in signal_collector decision_engine outcome_validator classifier_agent root_cause_agent action_planner confidence_scorer; do
+            diff lambdas/$fn/app.py terraform/modules/lambda_$fn/src/app.py || \
+              (echo "ERROR: $fn source drifted — run 'make sync-lambda' and commit." && exit 1)
+          done
+
+  terraform-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform init (no backend)
+        run: terraform -chdir=terraform init -backend=false
+      - name: Terraform validate
+        run: terraform -chdir=terraform validate
+
+  tflint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+      - name: Init tflint
+        run: tflint --init
+        working-directory: terraform
+      - name: Run tflint
+        run: tflint --recursive
+        working-directory: terraform
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install bandit
+        run: pip install bandit
+      - name: Run bandit (medium+ severity)
+        run: bandit -r lambdas/ -ll --exclude lambdas/tests
+
   unit-tests:
     runs-on: ubuntu-latest
     steps:

@@ -41,6 +41,22 @@ s3 = boto3.client("s3")
 events = boto3.client("events")
 eks = boto3.client("eks")
 ddb = boto3.client("dynamodb")
+cw = boto3.client("cloudwatch")
+
+
+def _put_metric(name: str, value: float = 1.0, unit: str = "Count", **dims):
+    try:
+        cw.put_metric_data(
+            Namespace="GitOpsSentinel",
+            MetricData=[{
+                "MetricName": name,
+                "Value": value,
+                "Unit": unit,
+                "Dimensions": [{"Name": k, "Value": str(v)} for k, v in dims.items()],
+            }],
+        )
+    except Exception:
+        pass
 
 # ── Config from environment ───────────────────────────────────────────────────
 INCIDENT_BUCKET = os.environ["INCIDENT_BUCKET"]
@@ -186,6 +202,7 @@ def handler(event, context):
     is_new, _ = _dedup_check_and_write(dk)
     if not is_new:
         _log("info", "dedup_suppressed", dedup_key=dk, service=service, alertname=alertname)
+        _put_metric("IncidentsDeduplicated", Service=service)
         return {"statusCode": 202, "body": json.dumps({"message": "dedup_suppressed", "dedup_key": dk})}
 
     # ── Prometheus enrichment ─────────────────────────────────────────────────
@@ -206,7 +223,7 @@ def handler(event, context):
     if ENABLE_K8S and CLUSTER_NAME:
         try:
             endpoint, ca = _k8s_api(CLUSTER_NAME)
-            ca_path = f"/tmp/{incident_id}-ca.crt"
+            ca_path = f"/tmp/{incident_id}-ca.crt"  # nosec B108 — /tmp is the only writable path in Lambda
             with open(ca_path, "wb") as f:
                 f.write(ca)
             token = _eks_token(CLUSTER_NAME)
@@ -270,4 +287,5 @@ def handler(event, context):
         "env": env,
     })
     _log("info", "event_emitted", event_type=event_type, incident_id=incident_id)
+    _put_metric("IncidentsReceived", Service=service)
     return {"statusCode": 200, "body": json.dumps({"incident_id": incident_id, "s3_key": key})}

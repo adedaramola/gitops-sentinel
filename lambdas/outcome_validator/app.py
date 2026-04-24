@@ -34,6 +34,22 @@ _SESSION = _make_session()
 events = boto3.client("events")
 secrets = boto3.client("secretsmanager")
 dynamodb = boto3.client("dynamodb")
+cw = boto3.client("cloudwatch")
+
+
+def _put_metric(name: str, value: float = 1.0, unit: str = "Count", **dims):
+    try:
+        cw.put_metric_data(
+            Namespace="GitOpsSentinel",
+            MetricData=[{
+                "MetricName": name,
+                "Value": value,
+                "Unit": unit,
+                "Dimensions": [{"Name": k, "Value": str(v)} for k, v in dims.items()],
+            }],
+        )
+    except Exception:
+        pass
 
 # ── Config from environment ───────────────────────────────────────────────────
 import time as _time  # noqa: E402
@@ -271,6 +287,7 @@ def handler(event, context):
 
     status = "OutcomeValidated" if recovered else "OutcomeFailed"
     _log("info", "verification_result", incident_id=incident_id, status=status, recovered=recovered)
+    _put_metric("OutcomeValidated" if recovered else "OutcomeFailed", Service=service)
 
     revert_result = None
     if (not recovered) and AUTO_REVERT_ON_FAIL and GITHUB_OWNER and GITHUB_REPO and GITHUB_TOKEN_SECRET_ARN:
@@ -293,6 +310,7 @@ def handler(event, context):
     msg = f"[GitOps Sentinel] {status} incident={incident_id} service={service} recovered={recovered}"
     if revert_result and revert_result.get("revert_pr_url"):
         msg += f" | Revert PR: {revert_result['revert_pr_url']}"
+        _put_metric("RevertPROpened", Service=service)
     _slack(msg)
 
     _audit_update(incident_id, status, {

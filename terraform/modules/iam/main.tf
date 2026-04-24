@@ -107,6 +107,18 @@ resource "aws_iam_role_policy_attachment" "xray" {
   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
+resource "aws_iam_role_policy" "lambda_cloudwatch_metrics" {
+  for_each = local.lambda_roles
+  name     = "${var.project_name}-${each.key}-cw-metrics"
+  role     = each.value
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      { Effect = "Allow", Action = ["cloudwatch:PutMetricData"], Resource = ["*"] }
+    ]
+  })
+}
+
 # ── Inline policies ───────────────────────────────────────────────────────────
 resource "aws_iam_role_policy" "signal_collector_inline" {
   name = "${var.project_name}-signal-collector-inline"

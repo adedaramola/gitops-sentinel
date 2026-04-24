@@ -69,6 +69,19 @@ tf-destroy: ## terraform destroy (prompts for confirmation)
 tf-validate: ## Validate Terraform configuration
 	cd $(TF_DIR) && terraform validate
 
+# ── Lambda sync ───────────────────────────────────────────────────────────────
+.PHONY: sync-lambda
+sync-lambda: ## Copy lambdas/*/app.py → terraform/modules/lambda_*/src/app.py
+	@for fn in signal_collector decision_engine outcome_validator classifier_agent root_cause_agent action_planner confidence_scorer; do \
+		cp $(LAMBDAS_DIR)/$$fn/app.py $(TF_DIR)/modules/lambda_$$fn/src/app.py && \
+		echo "  synced $$fn"; \
+	done
+
+.PHONY: check-lambda-sync
+check-lambda-sync: sync-lambda ## Fail if lambdas/ and terraform module sources are out of sync
+	@git diff --exit-code terraform/modules/lambda_*/src/app.py || \
+		(echo "\nERROR: Lambda sources are out of sync. Run 'make sync-lambda' and commit." && exit 1)
+
 # ── Lambda packaging ──────────────────────────────────────────────────────────
 .PHONY: package
 package: ## Zip each Lambda function for manual deployment
