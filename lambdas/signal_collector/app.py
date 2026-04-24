@@ -133,7 +133,6 @@ def _eks_token(cluster_name: str) -> str:
     signer = RequestSigner(
         service_id="sts",
         region_name=AWS_REGION,
-        service_name="sts",
         signing_version="v4",
         credentials=creds,
         event_emitter=session.get_component("event_emitter"),

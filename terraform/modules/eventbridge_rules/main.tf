@@ -115,6 +115,7 @@ resource "aws_cloudwatch_event_target" "multi_agent_to_sfn" {
   event_bus_name = var.event_bus_name
   arn            = var.sfn_arn
   role_arn       = var.events_sfn_role_arn
+  input_path     = "$.detail"
 
   retry_policy {
     maximum_retry_attempts       = 2
